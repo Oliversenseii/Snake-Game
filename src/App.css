@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0a0a0a;
+  margin: 0;
+  padding: 0;
+}
+
+/* CRT scanline overlay */
+.crt::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(0, 255, 65, 0.07);
+  z-index: 9999;
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+}
+
+/* Green glow text effect */
+.glow-text {
+  text-shadow: 0 0 10px #00ff41, 0 0 30px #00ff4188;
+}
+
+/* Input focus glow */
+.input-snake:focus {
+  outline: none;
+  border-color: #00ff41;
+  box-shadow: 0 0 0 2px #00ff4133, 0 0 12px #00ff4155;
+}

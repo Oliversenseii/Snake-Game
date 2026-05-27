@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 min-h-screen;
+  }
+}
+
+@layer components {
+  .game-cell {
+    @apply transition-all duration-75;
+  }
+  
+  .snake-head {
+    @apply bg-green-400 rounded-lg shadow-lg;
+  }
+  
+  .snake-body {
+    @apply bg-green-600 rounded-md;
+  }
+  
+  .food {
+    @apply bg-red-500 rounded-full shadow-lg animate-pulse;
+  }
+}
