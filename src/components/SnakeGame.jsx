@@ -38,32 +38,32 @@ const SnakeGame = ({ onBack }) => {
   // Play sound effect
   const playSound = (type) => {
     if (!settings.sound) return;
-    
+
     try {
       if (!audioCtxRef.current) {
         initAudio();
         if (!audioCtxRef.current) return;
       }
-      
+
       const ctx = audioCtxRef.current;
-      
+
       if (ctx.state === 'suspended') {
         ctx.resume();
       }
-      
+
       if (ctx.state === 'closed') {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtxRef.current = new AudioContext();
         return;
       }
-      
+
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
-      switch(type) {
+
+      switch (type) {
         case 'eat':
           osc.frequency.setValueAtTime(523.25, now);
           osc.type = 'sine';
@@ -173,48 +173,43 @@ const SnakeGame = ({ onBack }) => {
         default:
           break;
       }
-    } catch(e) {
+    } catch (e) {
       console.log('Audio error:', e);
     }
   };
 
+  // ─── FIX: Load best score once on mount, store in ref so it's always fresh ───
+  const bestRef = useRef(0);
+
   useEffect(() => {
     const loadBestScore = async () => {
+      let freshBest = 0;
       if (user) {
         const { data, error } = await supabase
           .from('scores')
           .select('high_score')
           .eq('user_id', user.id)
           .maybeSingle();
-        
         if (!error && data) {
-          setBest(data.high_score);
-          localStorage.setItem('snkBest5', data.high_score);
-          if (gameRef.current) {
-            gameRef.current.best = data.high_score;
-          }
+          freshBest = data.high_score;
         }
       } else {
         const localBest = localStorage.getItem('snkBest5');
-        if (localBest) {
-          const parsed = parseInt(localBest);
-          setBest(parsed);
-          // ✅ ADD THIS too
-          if (gameRef.current) {
-            gameRef.current.best = parsed;
-          }
-        }
+        if (localBest) freshBest = parseInt(localBest) || 0;
       }
+      bestRef.current = freshBest;
+      setBest(freshBest);
+      if (gameRef.current) gameRef.current.best = freshBest;
     };
+
     loadBestScore();
-    
+
     const savedSettings = localStorage.getItem('snkSettings');
     if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
+      try { setSettings(JSON.parse(savedSettings)); } catch (_) {}
     }
-    
-    // Initialize audio on mount (inlined to avoid missing dependency warning)
-    if (!audioCtxRef.current && settings.sound) {
+
+    if (!audioCtxRef.current) {
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtxRef.current = new AudioContext();
@@ -222,34 +217,45 @@ const SnakeGame = ({ onBack }) => {
         console.log('Web Audio API not supported');
       }
     }
-    
+
     return () => {
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        audioCtxRef.current.close().catch(e => console.log('Error closing audio:', e));
+        audioCtxRef.current.close().catch(() => {});
       }
     };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
-  
-  // Save score to Supabase - ONLY if new score is HIGHER
+
+  // ─── FIX: saveScoreToDB always reads from gameRef (never stale state) ───
   const saveScoreToDB = async (newScore) => {
-    if (user && newScore > best) {
+    const currentBest = gameRef.current ? gameRef.current.best : bestRef.current;
+
+    if (newScore > currentBest) {
+      // Update all sources of truth
+      bestRef.current = newScore;
+      if (gameRef.current) gameRef.current.best = newScore;
       setBest(newScore);
-      const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Player';
-      
-      const { error } = await supabase
-        .from('scores')
-        .upsert({ 
-          user_id: user.id, 
-          high_score: newScore,
-          username: username,
-          updated_at: new Date()
-        }, { onConflict: 'user_id' });
-      
-      if (error) {
-        console.error('Error saving score:', error);
+      localStorage.setItem('snkBest5', newScore);
+
+      if (user) {
+        const username =
+          user.user_metadata?.username || user.email?.split('@')[0] || 'Player';
+        const { error } = await supabase
+          .from('scores')
+          .upsert(
+            {
+              user_id: user.id,
+              high_score: newScore,
+              username,
+              updated_at: new Date(),
+            },
+            { onConflict: 'user_id' }
+          );
+        if (error) console.error('Error saving score:', error);
       }
+    } else {
+      // Still persist locally even if not a new high score
+      localStorage.setItem('snkBest5', Math.max(newScore, currentBest));
     }
-    localStorage.setItem('snkBest5', Math.max(newScore, best));
   };
 
   const saveSettings = () => {
@@ -271,44 +277,47 @@ const SnakeGame = ({ onBack }) => {
   const BONUS_SPAWN_INTERVAL = 5000;
   const MAX_BONUS_FOODS = 2;
 
-  const speedPercentage = Math.max(0, Math.min(100, ((START_SPEED - currentSpeed) / (START_SPEED - MIN_SPEED)) * 100));
+  const speedPercentage = Math.max(
+    0,
+    Math.min(100, ((START_SPEED - currentSpeed) / (START_SPEED - MIN_SPEED)) * 100)
+  );
 
   const FOODS = {
-    apple: { emoji: '🍎', score: 1, color: '#f87171', glow: 'rgba(248,113,113,0.55)', weight: 50, duration: 0, vanish: 0 },
-    speed: { emoji: '⚡', score: 0, color: '#fbbf24', glow: 'rgba(251,191,36,0.55)', weight: 15, duration: 5000, vanish: 8000 },
-    bomb: { emoji: '💣', score: -3, color: '#6b7280', glow: 'rgba(107,114,128,0.55)', weight: 8, duration: 0, vanish: 10000 },
-    gold: { emoji: '🌟', score: 5, color: '#fbbf24', glow: 'rgba(251,191,36,0.8)', weight: 5, duration: 0, vanish: 5000 },
-    poison: { emoji: '☢️', score: -2, color: '#84cc16', glow: 'rgba(132,204,22,0.6)', weight: 12, duration: 0, vanish: 7000 },
-    powerup: { emoji: '', score: 0, color: '#a78bfa', glow: 'rgba(167,139,250,0.6)', weight: 10, duration: 0, vanish: 8000 },
+    apple:  { emoji: '🍎', score: 1,  color: '#f87171', glow: 'rgba(248,113,113,0.55)', weight: 50, duration: 0,    vanish: 0     },
+    speed:  { emoji: '⚡', score: 0,  color: '#fbbf24', glow: 'rgba(251,191,36,0.55)',  weight: 15, duration: 5000, vanish: 8000  },
+    bomb:   { emoji: '💣', score: -3, color: '#6b7280', glow: 'rgba(107,114,128,0.55)', weight: 8,  duration: 0,    vanish: 10000 },
+    gold:   { emoji: '🌟', score: 5,  color: '#fbbf24', glow: 'rgba(251,191,36,0.8)',   weight: 5,  duration: 0,    vanish: 5000  },
+    poison: { emoji: '☢️', score: -2, color: '#84cc16', glow: 'rgba(132,204,22,0.6)',   weight: 12, duration: 0,    vanish: 7000  },
+    powerup:{ emoji: '',   score: 0,  color: '#a78bfa', glow: 'rgba(167,139,250,0.6)',  weight: 10, duration: 0,    vanish: 8000  },
   };
 
   const POWERUP_TYPES = ['ghost', 'magnet', 'slow', 'shield'];
   const POWERUP_INFO = {
-    ghost: { emoji: '👻', label: 'Ghost', color: '#a78bfa', dur: 5000 },
+    ghost:  { emoji: '👻', label: 'Ghost',  color: '#a78bfa', dur: 5000 },
     magnet: { emoji: '🧲', label: 'Magnet', color: '#22d3ee', dur: 6000 },
-    slow: { emoji: '🐌', label: 'Slow', color: '#60a5fa', dur: 5000 },
+    slow:   { emoji: '🐌', label: 'Slow',   color: '#60a5fa', dur: 5000 },
     shield: { emoji: '🛡', label: 'Shield', color: '#4ade80', dur: 0, oneHit: true },
   };
 
   const EVENTS = ['foodrain', 'portals'];
 
   const MAP_THEMES_POOL = [
-    { score: 0, name: 'Classic 🐍', bg: '#04080d', grid: '#07111a', wall: '#2d3f55', wallHighlight: 'rgba(255,255,255,0.07)', snakeBody: '#4ade80', snakeHead: '#bbf7d0', eye: '#0a1a10', tongue: '#f87171', stars: false, bubbles: false, particles: false },
-    { score: 1, name: 'Neon City 🌃', bg: '#0a0014', grid: '#12002a', wall: '#3d0066', wallHighlight: 'rgba(200,100,255,0.15)', snakeBody: '#c084fc', snakeHead: '#f0abfc', eye: '#1a0030', tongue: '#f472b6', stars: true, bubbles: false, particles: false, gridColor: '#1a0033' },
-    { score: 2, name: 'Deep Space 🚀', bg: '#000008', grid: '#04040f', wall: '#1e3a5f', wallHighlight: 'rgba(100,180,255,0.1)', snakeBody: '#22d3ee', snakeHead: '#a5f3fc', eye: '#001a20', tongue: '#60a5fa', stars: true, bubbles: false, particles: false, gridColor: '#06060f' },
-    { score: 3, name: 'Deep Ocean 🌊', bg: '#001525', grid: '#002035', wall: '#0c4a6e', wallHighlight: 'rgba(56,189,248,0.15)', snakeBody: '#34d399', snakeHead: '#a7f3d0', eye: '#001a10', tongue: '#2dd4bf', stars: false, bubbles: true, particles: false, gridColor: '#002030' },
-    { score: 4, name: 'Lava Zone 🌋', bg: '#150500', grid: '#200800', wall: '#7c2d12', wallHighlight: 'rgba(251,146,60,0.2)', snakeBody: '#fb923c', snakeHead: '#fed7aa', eye: '#1a0800', tongue: '#fbbf24', stars: false, bubbles: false, particles: true, gridColor: '#1a0600' },
-    { score: 5, name: 'CHAOS MODE 🌈', bg: '#080008', grid: '#0f000f', wall: '#4a1d96', wallHighlight: 'rgba(167,139,250,0.2)', snakeBody: 'rainbow', snakeHead: '#fff', eye: '#000', tongue: '#f87171', stars: true, bubbles: true, particles: true, gridColor: '#0d000d' },
-    { score: 6, name: 'Frozen World ❄️', bg: '#010d18', grid: '#031525', wall: '#164e63', wallHighlight: 'rgba(186,230,253,0.2)', snakeBody: '#7dd3fc', snakeHead: '#e0f2fe', eye: '#01161e', tongue: '#38bdf8', stars: true, bubbles: false, particles: false, gridColor: '#041a2e', mechanic: 'slippery' },
-    { score: 7, name: 'Cyber Grid ⚡', bg: '#000a0a', grid: '#001515', wall: '#134e4a', wallHighlight: 'rgba(45,212,191,0.25)', snakeBody: '#2dd4bf', snakeHead: '#ccfbf1', eye: '#001a18', tongue: '#f0abfc', stars: false, bubbles: false, particles: false, gridColor: '#001a1a', mechanic: 'electricBarriers' },
-    { score: 8, name: 'Toxic Area ☢️', bg: '#030a00', grid: '#071200', wall: '#3f6212', wallHighlight: 'rgba(163,230,53,0.2)', snakeBody: '#84cc16', snakeHead: '#d9f99d', eye: '#0a1500', tongue: '#86efac', stars: false, bubbles: false, particles: false, gridColor: '#0a1600', mechanic: 'poisonFood' },
-    { score: 9, name: 'Storm Zone 🌪️', bg: '#0d0d0d', grid: '#1a1a1a', wall: '#374151', wallHighlight: 'rgba(209,213,219,0.15)', snakeBody: '#d1d5db', snakeHead: '#f9fafb', eye: '#111827', tongue: '#60a5fa', stars: false, bubbles: false, particles: false, gridColor: '#1a1a1a', mechanic: 'windPush' },
-    { score: 10, name: 'Void Realm 👁️', bg: '#000000', grid: '#050505', wall: '#1c1917', wallHighlight: 'rgba(255,255,255,0.05)', snakeBody: '#a8a29e', snakeHead: '#fafaf9', eye: '#000', tongue: '#dc2626', stars: false, bubbles: false, particles: false, gridColor: '#080808', mechanic: 'glitch' },
-    { score: 11, name: 'Desert 🏜️', bg: '#1c1206', grid: '#261a09', wall: '#78350f', wallHighlight: 'rgba(251,191,36,0.15)', snakeBody: '#d97706', snakeHead: '#fef3c7', eye: '#1c0f00', tongue: '#f87171', stars: false, bubbles: false, particles: false, gridColor: '#201509', mechanic: 'sandstorm' },
-    { score: 12, name: 'Portal Lab 🌌', bg: '#05001a', grid: '#0a0030', wall: '#2e1065', wallHighlight: 'rgba(139,92,246,0.2)', snakeBody: '#8b5cf6', snakeHead: '#ede9fe', eye: '#02000d', tongue: '#f472b6', stars: true, bubbles: false, particles: false, gridColor: '#080025', mechanic: 'manyPortals' },
-    { score: 13, name: 'Inferno 🔥', bg: '#1a0000', grid: '#2a0000', wall: '#991b1b', wallHighlight: 'rgba(239,68,68,0.25)', snakeBody: '#ef4444', snakeHead: '#fecaca', eye: '#1a0000', tongue: '#fbbf24', stars: false, bubbles: false, particles: true, gridColor: '#200000', mechanic: 'movingWalls' },
-    { score: 14, name: 'Flooded Grid 🌊', bg: '#000d1a', grid: '#001a33', wall: '#1e3a5f', wallHighlight: 'rgba(56,189,248,0.2)', snakeBody: '#38bdf8', snakeHead: '#bae6fd', eye: '#000d1a', tongue: '#34d399', stars: false, bubbles: true, particles: false, gridColor: '#001524', mechanic: 'risingWater' },
-    { score: 15, name: '💀 NIGHTMARE', bg: '#000000', grid: '#0a0000', wall: '#450a0a', wallHighlight: 'rgba(248,113,113,0.3)', snakeBody: '#dc2626', snakeHead: '#ffffff', eye: '#000', tongue: '#fbbf24', stars: false, bubbles: false, particles: true, gridColor: '#050000', mechanic: 'nightmare' },
+    { score: 0,  name: 'Classic 🐍',      bg: '#04080d', grid: '#07111a', wall: '#2d3f55', wallHighlight: 'rgba(255,255,255,0.07)', snakeBody: '#4ade80', snakeHead: '#bbf7d0', eye: '#0a1a10', tongue: '#f87171', stars: false, bubbles: false, particles: false },
+    { score: 1,  name: 'Neon City 🌃',    bg: '#0a0014', grid: '#12002a', wall: '#3d0066', wallHighlight: 'rgba(200,100,255,0.15)', snakeBody: '#c084fc', snakeHead: '#f0abfc', eye: '#1a0030', tongue: '#f472b6', stars: true,  bubbles: false, particles: false, gridColor: '#1a0033' },
+    { score: 2,  name: 'Deep Space 🚀',   bg: '#000008', grid: '#04040f', wall: '#1e3a5f', wallHighlight: 'rgba(100,180,255,0.1)',  snakeBody: '#22d3ee', snakeHead: '#a5f3fc', eye: '#001a20', tongue: '#60a5fa', stars: true,  bubbles: false, particles: false, gridColor: '#06060f' },
+    { score: 3,  name: 'Deep Ocean 🌊',   bg: '#001525', grid: '#002035', wall: '#0c4a6e', wallHighlight: 'rgba(56,189,248,0.15)',  snakeBody: '#34d399', snakeHead: '#a7f3d0', eye: '#001a10', tongue: '#2dd4bf', stars: false, bubbles: true,  particles: false, gridColor: '#002030' },
+    { score: 4,  name: 'Lava Zone 🌋',    bg: '#150500', grid: '#200800', wall: '#7c2d12', wallHighlight: 'rgba(251,146,60,0.2)',   snakeBody: '#fb923c', snakeHead: '#fed7aa', eye: '#1a0800', tongue: '#fbbf24', stars: false, bubbles: false, particles: true,  gridColor: '#1a0600' },
+    { score: 5,  name: 'CHAOS MODE 🌈',   bg: '#080008', grid: '#0f000f', wall: '#4a1d96', wallHighlight: 'rgba(167,139,250,0.2)', snakeBody: 'rainbow', snakeHead: '#fff',    eye: '#000',    tongue: '#f87171', stars: true,  bubbles: true,  particles: true,  gridColor: '#0d000d' },
+    { score: 6,  name: 'Frozen World ❄️', bg: '#010d18', grid: '#031525', wall: '#164e63', wallHighlight: 'rgba(186,230,253,0.2)', snakeBody: '#7dd3fc', snakeHead: '#e0f2fe', eye: '#01161e', tongue: '#38bdf8', stars: true,  bubbles: false, particles: false, gridColor: '#041a2e', mechanic: 'slippery' },
+    { score: 7,  name: 'Cyber Grid ⚡',   bg: '#000a0a', grid: '#001515', wall: '#134e4a', wallHighlight: 'rgba(45,212,191,0.25)', snakeBody: '#2dd4bf', snakeHead: '#ccfbf1', eye: '#001a18', tongue: '#f0abfc', stars: false, bubbles: false, particles: false, gridColor: '#001a1a', mechanic: 'electricBarriers' },
+    { score: 8,  name: 'Toxic Area ☢️',   bg: '#030a00', grid: '#071200', wall: '#3f6212', wallHighlight: 'rgba(163,230,53,0.2)',  snakeBody: '#84cc16', snakeHead: '#d9f99d', eye: '#0a1500', tongue: '#86efac', stars: false, bubbles: false, particles: false, gridColor: '#0a1600', mechanic: 'poisonFood' },
+    { score: 9,  name: 'Storm Zone 🌪️',  bg: '#0d0d0d', grid: '#1a1a1a', wall: '#374151', wallHighlight: 'rgba(209,213,219,0.15)',snakeBody: '#d1d5db', snakeHead: '#f9fafb', eye: '#111827', tongue: '#60a5fa', stars: false, bubbles: false, particles: false, gridColor: '#1a1a1a', mechanic: 'windPush' },
+    { score: 10, name: 'Void Realm 👁️',  bg: '#000000', grid: '#050505', wall: '#1c1917', wallHighlight: 'rgba(255,255,255,0.05)',snakeBody: '#a8a29e', snakeHead: '#fafaf9', eye: '#000',    tongue: '#dc2626', stars: false, bubbles: false, particles: false, gridColor: '#080808', mechanic: 'glitch' },
+    { score: 11, name: 'Desert 🏜️',       bg: '#1c1206', grid: '#261a09', wall: '#78350f', wallHighlight: 'rgba(251,191,36,0.15)', snakeBody: '#d97706', snakeHead: '#fef3c7', eye: '#1c0f00', tongue: '#f87171', stars: false, bubbles: false, particles: false, gridColor: '#201509', mechanic: 'sandstorm' },
+    { score: 12, name: 'Portal Lab 🌌',   bg: '#05001a', grid: '#0a0030', wall: '#2e1065', wallHighlight: 'rgba(139,92,246,0.2)',  snakeBody: '#8b5cf6', snakeHead: '#ede9fe', eye: '#02000d', tongue: '#f472b6', stars: true,  bubbles: false, particles: false, gridColor: '#080025', mechanic: 'manyPortals' },
+    { score: 13, name: 'Inferno 🔥',       bg: '#1a0000', grid: '#2a0000', wall: '#991b1b', wallHighlight: 'rgba(239,68,68,0.25)', snakeBody: '#ef4444', snakeHead: '#fecaca', eye: '#1a0000', tongue: '#fbbf24', stars: false, bubbles: false, particles: true,  gridColor: '#200000', mechanic: 'movingWalls' },
+    { score: 14, name: 'Flooded Grid 🌊', bg: '#000d1a', grid: '#001a33', wall: '#1e3a5f', wallHighlight: 'rgba(56,189,248,0.2)',  snakeBody: '#38bdf8', snakeHead: '#bae6fd', eye: '#000d1a', tongue: '#34d399', stars: false, bubbles: true,  particles: false, gridColor: '#001524', mechanic: 'risingWater' },
+    { score: 15, name: '💀 NIGHTMARE',    bg: '#000000', grid: '#0a0000', wall: '#450a0a', wallHighlight: 'rgba(248,113,113,0.3)', snakeBody: '#dc2626', snakeHead: '#ffffff', eye: '#000',    tongue: '#fbbf24', stars: false, bubbles: false, particles: true,  gridColor: '#050000', mechanic: 'nightmare' },
   ];
 
   const ENEMY_CONFIGS = [
@@ -331,7 +340,7 @@ const SnakeGame = ({ onBack }) => {
   const wk = (x, y) => `${x},${y}`;
   const rndInt = (n) => Math.floor(Math.random() * n);
 
-  const initializeGame = () => {
+  const initializeGame = (freshBest) => {
     const rest = shuffleArray(MAP_THEMES_POOL.slice(1));
     const MAP_THEMES = [MAP_THEMES_POOL[0], ...rest];
     MAP_THEMES.forEach((t, i) => { t._threshold = i * 10; });
@@ -340,7 +349,7 @@ const SnakeGame = ({ onBack }) => {
       running: false,
       paused: false,
       score: 0,
-      best: best,
+      best: freshBest,   // ← always seeded with the real current best
       snake: [],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
@@ -402,11 +411,12 @@ const SnakeGame = ({ onBack }) => {
       const candidate = { x: rndInt(COLS), y: rndInt(ROWS) };
       const cx = candidate.x;
       const cy = candidate.y;
-      const blocked = gameRef.current.walls.has(wk(cx, cy))
-        || gameRef.current.snake.some(s => s.x === cx && s.y === cy)
-        || gameRef.current.foods.some(f => f.x === cx && f.y === cy)
-        || gameRef.current.enemies.some(e => e.body.some(s => s.x === cx && s.y === cy))
-        || gameRef.current.disappearedTiles.has(wk(cx, cy));
+      const blocked =
+        gameRef.current.walls.has(wk(cx, cy)) ||
+        gameRef.current.snake.some(s => s.x === cx && s.y === cy) ||
+        gameRef.current.foods.some(f => f.x === cx && f.y === cy) ||
+        gameRef.current.enemies.some(e => e.body.some(s => s.x === cx && s.y === cy)) ||
+        gameRef.current.disappearedTiles.has(wk(cx, cy));
       if (!blocked) return candidate;
     }
     return null;
@@ -454,18 +464,19 @@ const SnakeGame = ({ onBack }) => {
     spawnSpecificFood(type);
   };
 
+  // ─── FIX: addScore always uses gameRef.current.best (never stale closure) ───
   const addScore = async (pts, soundType = 'eat') => {
     const oldLevel = Math.floor(gameRef.current.score / 10);
     const newScoreValue = gameRef.current.score + pts;
     gameRef.current.score = Math.max(0, newScoreValue);
     setScore(gameRef.current.score);
-    
+
     if (soundType === 'gold') playSound('gold');
     else if (soundType === 'bomb') playSound('bomb');
     else if (soundType === 'powerup') playSound('powerup');
     else if (soundType === 'enemy') playSound('eatEnemy');
     else playSound('eat');
-    
+
     const newLevel = Math.floor(gameRef.current.score / 10);
     if (newLevel > oldLevel && newLevel > 0) {
       const newSpeed = Math.max(MIN_SPEED, gameRef.current.speed - SPEED_INCREASE);
@@ -478,14 +489,12 @@ const SnakeGame = ({ onBack }) => {
         }
       }
     }
-    
+
+    // ─── FIX: compare against gameRef.current.best, not stale `best` state ───
     if (gameRef.current.score > gameRef.current.best) {
-      gameRef.current.best = gameRef.current.score;
-      setBest(gameRef.current.score);
-      localStorage.setItem('snkBest5', gameRef.current.best);
       await saveScoreToDB(gameRef.current.score);
     }
-    
+
     setSnakeLen(gameRef.current.snake.length);
   };
 
@@ -497,7 +506,7 @@ const SnakeGame = ({ onBack }) => {
     const theme = getTheme();
     setThemeName(theme.name);
     setCombo(gameRef.current.comboCount || 1);
-    
+
     const powerupList = Object.keys(gameRef.current.powerups).map(t => POWERUP_INFO[t]);
     setPowerups(powerupList);
   };
@@ -518,7 +527,7 @@ const SnakeGame = ({ onBack }) => {
   const triggerRandomEvent = () => {
     const ev = EVENTS[rndInt(EVENTS.length)];
     gameRef.current.currentEvent = ev;
-    
+
     if (ev === 'foodrain') {
       showEventBanner('🌧', 'FOOD RAIN!', '8 apples incoming!');
       let count = 0;
@@ -569,21 +578,21 @@ const SnakeGame = ({ onBack }) => {
     if (gameRef.current.disappearTimer) clearInterval(gameRef.current.disappearTimer);
     if (gameRef.current.waterTimer) clearInterval(gameRef.current.waterTimer);
     if (gameRef.current.movingWallsTimer) clearInterval(gameRef.current.movingWallsTimer);
-    
+
     gameRef.current.electricBarriers = [];
     gameRef.current.windActive = false;
     gameRef.current.glitchActive = false;
     gameRef.current.sandstormAlpha = 0;
     gameRef.current.sandstormTarget = 0;
     gameRef.current.waterLevel = 0;
-    
+
     if (!th.mechanic) return;
-    
+
     if (th.mechanic === 'electricBarriers') {
       rebuildElectricBarriers();
       gameRef.current.electricTimer = setInterval(() => rebuildElectricBarriers(), 2500);
     }
-    
+
     if (th.mechanic === 'windPush') {
       gameRef.current.windTimer = setInterval(() => {
         if (!gameRef.current.running || gameRef.current.paused) return;
@@ -596,7 +605,7 @@ const SnakeGame = ({ onBack }) => {
         }
       }, 6000);
     }
-    
+
     if (th.mechanic === 'glitch') {
       const scheduleGlitch = () => {
         if (!gameRef.current.running) return;
@@ -610,13 +619,13 @@ const SnakeGame = ({ onBack }) => {
       };
       scheduleGlitch();
     }
-    
+
     if (th.mechanic === 'sandstorm') {
       gameRef.current.sandstormTimer = setInterval(() => {
         gameRef.current.sandstormTarget = gameRef.current.sandstormTarget > 0 ? 0 : 0.6 + Math.random() * 0.25;
       }, 4000);
     }
-    
+
     if (th.mechanic === 'disappearingTiles') {
       gameRef.current.disappearTimer = setInterval(() => {
         if (!gameRef.current.running || gameRef.current.paused) return;
@@ -629,18 +638,21 @@ const SnakeGame = ({ onBack }) => {
         }
       }, 800);
     }
-    
+
     if (th.mechanic === 'risingWater') {
       gameRef.current.waterTimer = setInterval(() => {
         if (!gameRef.current.running || gameRef.current.paused) return;
         const prev = gameRef.current.waterLevel;
-        gameRef.current.waterLevel = Math.min(gameRef.current.waterLevel + 1, Math.floor(gameRef.current.ROWS * 0.6));
+        gameRef.current.waterLevel = Math.min(
+          gameRef.current.waterLevel + 1,
+          Math.floor(gameRef.current.ROWS * 0.6)
+        );
         if (gameRef.current.waterLevel !== prev) {
           showEventBanner('🌊', 'WATER RISING!', 'The flood is rising!');
         }
       }, 3000);
     }
-    
+
     if (th.mechanic === 'movingWalls') {
       gameRef.current.movingWallsTimer = setInterval(() => {
         if (!gameRef.current.running || gameRef.current.paused) return;
@@ -653,7 +665,10 @@ const SnakeGame = ({ onBack }) => {
           const d = dirs[rndInt(dirs.length)];
           const nx = (wx + d.x + gameRef.current.COLS) % gameRef.current.COLS;
           const ny = (wy + d.y + gameRef.current.ROWS) % gameRef.current.ROWS;
-          if (!gameRef.current.snake.some(s => s.x === nx && s.y === ny) && !gameRef.current.foods.some(f => f.x === nx && f.y === ny)) {
+          if (
+            !gameRef.current.snake.some(s => s.x === nx && s.y === ny) &&
+            !gameRef.current.foods.some(f => f.x === nx && f.y === ny)
+          ) {
             gameRef.current.walls.add(wk(nx, ny));
           } else {
             gameRef.current.walls.add(k);
@@ -661,7 +676,7 @@ const SnakeGame = ({ onBack }) => {
         });
       }, 2000);
     }
-    
+
     if (th.mechanic === 'manyPortals') {
       gameRef.current.portals = [];
       for (let i = 0; i < 3; i++) {
@@ -677,7 +692,7 @@ const SnakeGame = ({ onBack }) => {
         }
       }, 15000);
     }
-    
+
     if (th.mechanic === 'nightmare') {
       gameRef.current.portals = [];
       const a = safePos(), b = safePos();
@@ -701,7 +716,7 @@ const SnakeGame = ({ onBack }) => {
     let added = 0, attempts = 0;
     const COLS = gameRef.current.COLS;
     const ROWS = gameRef.current.ROWS;
-    
+
     while (added < 4 && attempts < 500) {
       attempts++;
       const horiz = Math.random() > 0.5;
@@ -710,19 +725,21 @@ const SnakeGame = ({ onBack }) => {
       const sy = rndInt(ROWS - 2) + 1;
       let ok = true;
       const cells = [];
-      
+
       for (let i = 0; i < len; i++) {
         const wx = horiz ? sx + i : sx;
         const wy = horiz ? sy : sy + i;
-        if (gameRef.current.walls.has(wk(wx, wy)) || 
-            gameRef.current.snake.some(s => s.x === wx && s.y === wy) || 
-            gameRef.current.foods.some(f => f.x === wx && f.y === wy)) {
+        if (
+          gameRef.current.walls.has(wk(wx, wy)) ||
+          gameRef.current.snake.some(s => s.x === wx && s.y === wy) ||
+          gameRef.current.foods.some(f => f.x === wx && f.y === wy)
+        ) {
           ok = false;
           break;
         }
         cells.push([wx, wy]);
       }
-      
+
       if (ok) {
         cells.forEach(([wx, wy]) => gameRef.current.walls.add(wk(wx, wy)));
         added++;
@@ -741,25 +758,32 @@ const SnakeGame = ({ onBack }) => {
     for (let tries = 0; tries < 500; tries++) {
       const cx = rndInt(COLS);
       const cy = rndInt(ROWS);
-      const blocked = gameRef.current.walls.has(wk(cx, cy))
-        || gameRef.current.snake.some(s => Math.abs(s.x - cx) < 8 && Math.abs(s.y - cy) < 8)
-        || gameRef.current.enemies.some(e => e.body.some(s => s.x === cx && s.y === cy));
+      const blocked =
+        gameRef.current.walls.has(wk(cx, cy)) ||
+        gameRef.current.snake.some(s => Math.abs(s.x - cx) < 8 && Math.abs(s.y - cy) < 8) ||
+        gameRef.current.enemies.some(e => e.body.some(s => s.x === cx && s.y === cy));
       if (!blocked) { ex = cx; ey = cy; break; }
     }
     const d = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }][rndInt(4)];
     const enemy = {
       idx, cfg,
-      body: [{ x: ex, y: ey }, { x: (ex - d.x + COLS) % COLS, y: (ey - d.y + ROWS) % ROWS }, { x: (ex - d.x * 2 + COLS) % COLS, y: (ey - d.y * 2 + ROWS) % ROWS }],
+      body: [
+        { x: ex, y: ey },
+        { x: (ex - d.x + COLS) % COLS, y: (ey - d.y + ROWS) % ROWS },
+        { x: (ex - d.x * 2 + COLS) % COLS, y: (ey - d.y * 2 + ROWS) % ROWS },
+      ],
       dir: { ...d }, active: true,
-      personality: idx === 0 ? 'aggressive' : idx === 1 ? 'random' : 'patrol'
+      personality: idx === 0 ? 'aggressive' : idx === 1 ? 'random' : 'patrol',
     };
     gameRef.current.enemies.push(enemy);
-    showEventBanner(idx === 0 ? '👾' : idx === 1 ? '🌸' : '⚔️', 
+    showEventBanner(
+      idx === 0 ? '👾' : idx === 1 ? '🌸' : '⚔️',
       idx === 0 ? 'ENEMY SNAKE!' : idx === 1 ? '2ND SNAKE!' : '3RD SNAKE!',
-      idx === 0 ? 'Eat the head to win!' : idx === 1 ? 'Two enemies now!' : 'THREE enemies! 💀');
-    
+      idx === 0 ? 'Eat the head to win!' : idx === 1 ? 'Two enemies now!' : 'THREE enemies! 💀'
+    );
+
     playSound('enemy');
-    
+
     if (!gameRef.current.enemyLoop) {
       gameRef.current.enemyLoop = setInterval(tickEnemies, ENEMY_SPEED);
     }
@@ -769,29 +793,26 @@ const SnakeGame = ({ onBack }) => {
     if (!gameRef.current.running || gameRef.current.paused) return;
     const COLS = gameRef.current.COLS;
     const ROWS = gameRef.current.ROWS;
-    
+
     gameRef.current.enemies.forEach(enemy => {
       if (!enemy.active) return;
       const head = enemy.body[0];
       let target = null;
       let bestDist = Infinity;
-      
+
       if (enemy.personality === 'aggressive') {
         target = gameRef.current.snake[0];
       } else {
         gameRef.current.foods.forEach(f => {
           const d = Math.abs(f.x - head.x) + Math.abs(f.y - head.y);
-          if (d < bestDist) {
-            bestDist = d;
-            target = f;
-          }
+          if (d < bestDist) { bestDist = d; target = f; }
         });
       }
-      
+
       const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
       let best = null;
       let bestScore = -Infinity;
-      
+
       for (const d of dirs) {
         if (d.x === -enemy.dir.x && d.y === -enemy.dir.y) continue;
         const nx = (head.x + d.x + COLS) % COLS;
@@ -800,22 +821,22 @@ const SnakeGame = ({ onBack }) => {
         if (gameRef.current.disappearedTiles.has(wk(nx, ny))) continue;
         if (enemy.body.some(s => s.x === nx && s.y === ny)) continue;
         if (gameRef.current.enemies.some(e => e !== enemy && e.body.some(s => s.x === nx && s.y === ny))) continue;
-        
+
         let sc = 0;
         if (target) sc = -(Math.abs(nx - target.x) + Math.abs(ny - target.y));
         if (enemy.personality === 'random') sc += (Math.random() - 0.5) * 8;
         else if (enemy.personality === 'patrol') sc += (Math.random() - 0.5) * 4;
-        
-        if (sc > bestScore) {
-          bestScore = sc;
-          best = d;
-        }
+
+        if (sc > bestScore) { bestScore = sc; best = d; }
       }
-      
+
       if (!best) return;
       enemy.dir = best;
-      const nh = { x: (head.x + enemy.dir.x + COLS) % COLS, y: (head.y + enemy.dir.y + ROWS) % ROWS };
-      
+      const nh = {
+        x: (head.x + enemy.dir.x + COLS) % COLS,
+        y: (head.y + enemy.dir.y + ROWS) % ROWS,
+      };
+
       if (gameRef.current.snake[0].x === nh.x && gameRef.current.snake[0].y === nh.y) {
         if (gameRef.current.powerups.shield) {
           delete gameRef.current.powerups.shield;
@@ -825,10 +846,10 @@ const SnakeGame = ({ onBack }) => {
         gameOver();
         return;
       }
-      
+
       const bodyHit = gameRef.current.snake.slice(1).some(s => s.x === nh.x && s.y === nh.y);
       if (bodyHit) return;
-      
+
       enemy.body.unshift(nh);
       const fi = gameRef.current.foods.findIndex(f => f.x === nh.x && f.y === nh.y);
       if (fi >= 0) {
@@ -851,7 +872,7 @@ const SnakeGame = ({ onBack }) => {
     }
     gameRef.current.lastEatTime = now;
     if (gameRef.current.comboTimer) clearTimeout(gameRef.current.comboTimer);
-    
+
     if (gameRef.current.comboCount >= 2) {
       gameRef.current.comboTimer = setTimeout(() => {
         gameRef.current.comboCount = 0;
@@ -867,7 +888,7 @@ const SnakeGame = ({ onBack }) => {
     gameRef.current.powerups[type] = info.oneHit ? 'shield' : Date.now() + info.dur;
     updateHUD();
     playSound('powerup');
-    
+
     if (type === 'slow') {
       const slowSpeed = Math.min(gameRef.current.speed * 2, 400);
       clearInterval(gameRef.current.loop);
@@ -881,7 +902,7 @@ const SnakeGame = ({ onBack }) => {
         }
       }, info.dur);
     }
-    
+
     if (type !== 'slow' && !info.oneHit) {
       setTimeout(() => {
         delete gameRef.current.powerups[type];
@@ -895,9 +916,9 @@ const SnakeGame = ({ onBack }) => {
     if (gameRef.current.loop) clearInterval(gameRef.current.loop);
     if (gameRef.current.enemyLoop) clearInterval(gameRef.current.enemyLoop);
     if (gameRef.current.bonusLoop) clearInterval(gameRef.current.bonusLoop);
-    
+
     playSound('gameOver');
-    
+
     const overlay = document.getElementById('gameOverlay');
     if (overlay) overlay.style.display = 'flex';
   };
@@ -923,21 +944,24 @@ const SnakeGame = ({ onBack }) => {
 
   const tick = () => {
     if (!gameRef.current.running || gameRef.current.paused) return;
-    
+
     const COLS = gameRef.current.COLS;
     const ROWS = gameRef.current.ROWS;
-    
+
     gameRef.current.dir = gameRef.current.nextDir;
     let dx = gameRef.current.dir.x, dy = gameRef.current.dir.y;
-    
+
     if (gameRef.current.windActive && Math.random() < 0.30) {
       if (dx === 0) dx = gameRef.current.windDir.x;
       else if (dy === 0) dy = gameRef.current.windDir.y;
     }
-    
+
     const head = gameRef.current.snake[0];
-    const newHead = { x: (head.x + dx + COLS) % COLS, y: (head.y + dy + ROWS) % ROWS };
-    
+    const newHead = {
+      x: (head.x + dx + COLS) % COLS,
+      y: (head.y + dy + ROWS) % ROWS,
+    };
+
     if (gameRef.current.powerups.magnet && Date.now() < gameRef.current.powerups.magnet) {
       gameRef.current.foods.forEach(f => {
         const dist = Math.abs(f.x - newHead.x) + Math.abs(f.y - newHead.y);
@@ -951,9 +975,9 @@ const SnakeGame = ({ onBack }) => {
         }
       });
     }
-    
+
     const hasGhost = gameRef.current.powerups.ghost && Date.now() < gameRef.current.powerups.ghost;
-    
+
     if (!hasGhost && gameRef.current.walls.has(wk(newHead.x, newHead.y))) {
       if (gameRef.current.powerups.shield) {
         delete gameRef.current.powerups.shield;
@@ -963,7 +987,7 @@ const SnakeGame = ({ onBack }) => {
         return;
       }
     }
-    
+
     if (!hasGhost && gameRef.current.disappearedTiles.has(wk(newHead.x, newHead.y))) {
       if (gameRef.current.powerups.shield) {
         delete gameRef.current.powerups.shield;
@@ -973,7 +997,7 @@ const SnakeGame = ({ onBack }) => {
         return;
       }
     }
-    
+
     if (!hasGhost) {
       for (const barrier of gameRef.current.electricBarriers) {
         if (barrier.active && barrier.cells.some(c => c.x === newHead.x && c.y === newHead.y)) {
@@ -987,7 +1011,7 @@ const SnakeGame = ({ onBack }) => {
         }
       }
     }
-    
+
     if (gameRef.current.waterLevel > 0 && newHead.y >= ROWS - gameRef.current.waterLevel) {
       if (gameRef.current.powerups.shield) {
         delete gameRef.current.powerups.shield;
@@ -997,7 +1021,7 @@ const SnakeGame = ({ onBack }) => {
         return;
       }
     }
-    
+
     if (gameRef.current.snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
       if (gameRef.current.powerups.shield) {
         delete gameRef.current.powerups.shield;
@@ -1007,10 +1031,10 @@ const SnakeGame = ({ onBack }) => {
         return;
       }
     }
-    
+
     for (const enemy of gameRef.current.enemies) {
       if (!enemy.active) continue;
-      
+
       if (enemy.body[0].x === newHead.x && enemy.body[0].y === newHead.y) {
         const gainLen = enemy.body.length;
         addScore(Math.max(3, Math.floor(gainLen / 2)), 'enemy');
@@ -1024,7 +1048,11 @@ const SnakeGame = ({ onBack }) => {
           const respawnPos = safePos();
           if (respawnPos) {
             const dd = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }][rndInt(4)];
-            enemy.body = [respawnPos, { x: (respawnPos.x - dd.x + COLS) % COLS, y: respawnPos.y }, { x: (respawnPos.x - dd.x * 2 + COLS) % COLS, y: respawnPos.y }];
+            enemy.body = [
+              respawnPos,
+              { x: (respawnPos.x - dd.x + COLS) % COLS, y: respawnPos.y },
+              { x: (respawnPos.x - dd.x * 2 + COLS) % COLS, y: respawnPos.y },
+            ];
             enemy.dir = { ...dd };
             enemy.active = true;
             showEventBanner('💀', 'ENEMY RESPAWN!', 'The enemy is back!');
@@ -1032,7 +1060,7 @@ const SnakeGame = ({ onBack }) => {
         }, 3000);
         break;
       }
-      
+
       if (enemy.body.slice(1).some(s => s.x === newHead.x && s.y === newHead.y)) {
         if (gameRef.current.powerups.shield) {
           delete gameRef.current.powerups.shield;
@@ -1043,7 +1071,7 @@ const SnakeGame = ({ onBack }) => {
         return;
       }
     }
-    
+
     for (const portal of gameRef.current.portals) {
       if (newHead.x === portal.a.x && newHead.y === portal.a.y) {
         newHead.x = portal.b.x;
@@ -1056,18 +1084,17 @@ const SnakeGame = ({ onBack }) => {
         break;
       }
     }
-    
+
     gameRef.current.snake.unshift(newHead);
-    
+
     const foodIndex = gameRef.current.foods.findIndex(f => f.x === newHead.x && f.y === newHead.y);
-    
+
     if (foodIndex >= 0) {
       const food = gameRef.current.foods[foodIndex];
       gameRef.current.foods.splice(foodIndex, 1);
-      
       const multiplier = registerCombo();
       const type = food.type;
-      
+
       if (type === 'apple') {
         addScore(food.info.score * multiplier, 'eat');
         floatText('+' + (food.info.score * multiplier), newHead, '#4ade80');
@@ -1109,19 +1136,19 @@ const SnakeGame = ({ onBack }) => {
     } else {
       gameRef.current.snake.pop();
     }
-    
+
     setSnakeLen(gameRef.current.snake.length);
-    
+
     if (gameRef.current.score >= gameRef.current.wallThreshold && gameRef.current.score > 0) {
       gameRef.current.wallThreshold += 10;
       addWalls();
     }
-    
+
     if (gameRef.current.score >= gameRef.current.eventThreshold && gameRef.current.score > 30) {
       gameRef.current.eventThreshold += 10;
       triggerRandomEvent();
     }
-    
+
     const newThemeIdx = Math.floor(gameRef.current.score / 10);
     if (newThemeIdx > gameRef.current.themeIdx && newThemeIdx < gameRef.current.MAP_THEMES.length) {
       gameRef.current.themeIdx = newThemeIdx;
@@ -1129,11 +1156,11 @@ const SnakeGame = ({ onBack }) => {
       setThemeName(newTheme.name);
       initMechanic(newTheme);
     }
-    
+
     if (gameRef.current.score >= ENEMY1_AT && gameRef.current.enemies.length === 0) spawnEnemy(0);
     if (gameRef.current.score >= ENEMY2_AT && gameRef.current.enemies.length === 1) spawnEnemy(1);
     if (gameRef.current.score >= ENEMY3_AT && gameRef.current.enemies.length === 2) spawnEnemy(2);
-    
+
     updateHUD();
     renderCanvas();
   };
@@ -1146,26 +1173,26 @@ const SnakeGame = ({ onBack }) => {
     const H = canvas.height;
     const COLS = gameRef.current?.COLS || 0;
     const ROWS = gameRef.current?.ROWS || 0;
-    
+
     if (W === 0 || H === 0 || COLS === 0 || ROWS === 0) return;
-    
+
     const th = getTheme();
-    
+
     gameRef.current.rainbowHue = (gameRef.current.rainbowHue + 2) % 360;
-    
+
     if (gameRef.current.glitchActive) {
       ctx.save();
       ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 4);
     }
-    
+
     ctx.fillStyle = th.bg;
     ctx.fillRect(0, 0, W, H);
-    
+
     if (th.mechanic === 'sandstorm' && gameRef.current.sandstormAlpha > 0.05) {
       ctx.fillStyle = `rgba(120,80,20,${gameRef.current.sandstormAlpha})`;
       ctx.fillRect(0, 0, W, H);
     }
-    
+
     ctx.strokeStyle = th.gridColor || th.grid;
     ctx.lineWidth = 0.5;
     for (let x = 0; x <= COLS; x++) {
@@ -1180,13 +1207,13 @@ const SnakeGame = ({ onBack }) => {
       ctx.lineTo(W, y * CELL);
       ctx.stroke();
     }
-    
+
     if (gameRef.current.waterLevel > 0) {
       const wy = H - gameRef.current.waterLevel * CELL;
       ctx.fillStyle = 'rgba(56,189,248,0.3)';
       ctx.fillRect(0, wy, W, H - wy);
     }
-    
+
     gameRef.current.portals.forEach((portal) => {
       [portal.a, portal.b].forEach((point, pti) => {
         const px = point.x * CELL + CELL / 2;
@@ -1200,7 +1227,7 @@ const SnakeGame = ({ onBack }) => {
         ctx.fillText('🌀', px, py + 5);
       });
     });
-    
+
     gameRef.current.disappearedTiles.forEach(key => {
       const [tx, ty] = key.split(',').map(Number);
       ctx.fillStyle = '#000';
@@ -1208,7 +1235,7 @@ const SnakeGame = ({ onBack }) => {
       ctx.strokeStyle = '#4ade80';
       ctx.strokeRect(tx * CELL + 1, ty * CELL + 1, CELL - 2, CELL - 2);
     });
-    
+
     gameRef.current.walls.forEach(key => {
       const [wx, wy] = key.split(',').map(Number);
       ctx.fillStyle = th.wall;
@@ -1216,7 +1243,7 @@ const SnakeGame = ({ onBack }) => {
       ctx.fillStyle = th.wallHighlight;
       ctx.fillRect(wx * CELL + 2, wy * CELL + 2, CELL - 4, 3);
     });
-    
+
     gameRef.current.electricBarriers.forEach(barrier => {
       if (!barrier.active) return;
       barrier.cells.forEach(c => {
@@ -1228,21 +1255,21 @@ const SnakeGame = ({ onBack }) => {
         ctx.fillText('⚡', c.x * CELL + CELL / 2, c.y * CELL + CELL / 2 + 3);
       });
     });
-    
+
     ctx.font = `${CELL - 4}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     gameRef.current.foods.forEach(food => {
       const fx = food.x * CELL + CELL / 2;
       const fy = food.y * CELL + CELL / 2;
-      
+
       if (food.type === 'gold') {
         ctx.globalAlpha = 0.7 + Math.sin(Date.now() / 200) * 0.3;
       }
       ctx.fillStyle = '#fff';
       ctx.fillText(food.info.emoji, fx, fy + 1);
       ctx.globalAlpha = 1;
-      
+
       if (food.type !== 'apple' && food.info.vanish) {
         const elapsed = Date.now() - food.born;
         const pct = Math.max(0, 1 - (elapsed / food.info.vanish));
@@ -1253,14 +1280,14 @@ const SnakeGame = ({ onBack }) => {
         ctx.stroke();
       }
     });
-    
+
     if (gameRef.current.windActive) {
       ctx.globalAlpha = 0.2;
       ctx.fillStyle = 'rgba(200,220,255,0.3)';
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
     }
-    
+
     gameRef.current.enemies.forEach(enemy => {
       if (!enemy.active) return;
       enemy.body.forEach((seg, i) => {
@@ -1281,11 +1308,11 @@ const SnakeGame = ({ onBack }) => {
         }
       });
     });
-    
+
     gameRef.current.snake.forEach((seg, i) => {
       const sx = seg.x * CELL;
       const sy = seg.y * CELL;
-      
+
       if (i === 0) {
         if (gameRef.current.powerups.shield) {
           ctx.fillStyle = 'rgba(74,222,128,0.3)';
@@ -1293,7 +1320,7 @@ const SnakeGame = ({ onBack }) => {
         }
         ctx.fillStyle = th.snakeHead;
         ctx.fillRect(sx + 1, sy + 1, CELL - 2, CELL - 2);
-        
+
         ctx.fillStyle = th.eye;
         const dirX = gameRef.current.dir.x;
         const dirY = gameRef.current.dir.y;
@@ -1301,7 +1328,7 @@ const SnakeGame = ({ onBack }) => {
         const cy = sy + CELL / 2;
         ctx.fillRect(cx + dirX * 4 + dirY * 3 - 3, cy + dirY * 4 + dirX * 3 - 3, 3, 3);
         ctx.fillRect(cx + dirX * 4 - dirY * 3 - 3, cy + dirY * 4 - dirX * 3 - 3, 3, 3);
-        
+
         ctx.strokeStyle = th.tongue;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1323,7 +1350,7 @@ const SnakeGame = ({ onBack }) => {
         ctx.fillRect(sx + 2, sy + 2, CELL - 4, CELL - 4);
       }
     });
-    
+
     if (gameRef.current.glitchActive) {
       ctx.restore();
       ctx.globalAlpha = 0.15;
@@ -1335,47 +1362,74 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
-  const startGame = () => {
+  // ─── FIX: startGame fetches fresh best before initializing ───
+  const startGame = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
+    // Stop any running game first
+    if (gameRef.current?.loop) clearInterval(gameRef.current.loop);
+    if (gameRef.current?.enemyLoop) clearInterval(gameRef.current.enemyLoop);
+    if (gameRef.current?.bonusLoop) clearInterval(gameRef.current.bonusLoop);
+
+    // ── Always fetch the freshest best score before a new game starts ──
+    let freshBest = bestRef.current; // start with what we already know
+    if (user) {
+      try {
+        const { data, error } = await supabase
+          .from('scores')
+          .select('high_score')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!error && data && data.high_score > freshBest) {
+          freshBest = data.high_score;
+        }
+      } catch (_) {}
+    } else {
+      const localBest = parseInt(localStorage.getItem('snkBest5') || '0');
+      if (localBest > freshBest) freshBest = localBest;
+    }
+
+    bestRef.current = freshBest;
+    setBest(freshBest);
+
     const container = canvas.parentElement;
     const width = container.clientWidth;
     const height = container.clientHeight;
-    
+
     canvas.width = width;
     canvas.height = height;
-    
+
     const COLS = Math.floor(width / CELL);
     const ROWS = Math.floor(height / CELL);
-    
-    gameRef.current = initializeGame();
+
+    // ── Pass freshBest into initializeGame so gameRef.current.best is correct ──
+    gameRef.current = initializeGame(freshBest);
     gameRef.current.COLS = COLS;
     gameRef.current.ROWS = ROWS;
     gameRef.current.running = true;
-    gameRef.current.best = best;
     gameRef.current.speed = START_SPEED;
     setCurrentSpeed(START_SPEED);
-    
+
     const startX = Math.floor(COLS / 2);
     const startY = Math.floor(ROWS / 2);
     gameRef.current.snake = [
-      { x: startX, y: startY },
+      { x: startX,     y: startY },
       { x: startX - 1, y: startY },
-      { x: startX - 2, y: startY }
+      { x: startX - 2, y: startY },
     ];
-    
+
     spawnSpecificFood('apple');
     spawnSpecificFood('apple');
-    
+
     gameRef.current.bonusLoop = setInterval(spawnBonusFood, BONUS_SPAWN_INTERVAL);
-    
+
     updateHUD();
     renderCanvas();
-    
+
     if (gameRef.current.loop) clearInterval(gameRef.current.loop);
     gameRef.current.loop = setInterval(tick, gameRef.current.speed);
-    
+
     const overlay = document.getElementById('gameOverlay');
     if (overlay) overlay.style.display = 'none';
   };
@@ -1390,14 +1444,14 @@ const SnakeGame = ({ onBack }) => {
       }
       return;
     }
-    
+
     let dx = 0, dy = 0;
-    
+
     switch (e.key) {
-      case 'ArrowUp': case 'w': case 'W': dx = 0; dy = -1; break;
-      case 'ArrowDown': case 's': case 'S': dx = 0; dy = 1; break;
-      case 'ArrowLeft': case 'a': case 'A': dx = -1; dy = 0; break;
-      case 'ArrowRight': case 'd': case 'D': dx = 1; dy = 0; break;
+      case 'ArrowUp':    case 'w': case 'W': dx = 0;  dy = -1; break;
+      case 'ArrowDown':  case 's': case 'S': dx = 0;  dy = 1;  break;
+      case 'ArrowLeft':  case 'a': case 'A': dx = -1; dy = 0;  break;
+      case 'ArrowRight': case 'd': case 'D': dx = 1;  dy = 0;  break;
       case ' ':
       case 'p':
       case 'P': {
@@ -1413,10 +1467,10 @@ const SnakeGame = ({ onBack }) => {
         return;
       default: return;
     }
-    
+
     if (dx === 0 && dy === 0) return;
     if ((dx !== 0 && dx === -gameRef.current.dir.x) || (dy !== 0 && dy === -gameRef.current.dir.y)) return;
-    
+
     gameRef.current.nextDir = { x: dx, y: dy };
     e.preventDefault();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1438,11 +1492,11 @@ const SnakeGame = ({ onBack }) => {
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     window.addEventListener('resize', handleResize);
-    
+
     setTimeout(() => {
       startGame();
     }, 100);
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
       window.removeEventListener('resize', handleResize);
@@ -1450,7 +1504,7 @@ const SnakeGame = ({ onBack }) => {
       if (gameRef.current?.enemyLoop) clearInterval(gameRef.current.enemyLoop);
       if (gameRef.current?.bonusLoop) clearInterval(gameRef.current.bonusLoop);
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        audioCtxRef.current.close().catch(e => console.log('Error closing audio:', e));
+        audioCtxRef.current.close().catch(() => {});
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1459,7 +1513,7 @@ const SnakeGame = ({ onBack }) => {
     const style = document.createElement('style');
     style.textContent = `
       @keyframes floatUp {
-        0% { opacity: 1; transform: translateY(0) scale(1); }
+        0%   { opacity: 1; transform: translateY(0) scale(1); }
         100% { opacity: 0; transform: translateY(-50px) scale(1.3); }
       }
     `;
@@ -1475,17 +1529,24 @@ const SnakeGame = ({ onBack }) => {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: '#04080d', zIndex: 1000 }}>
+      {/* ── HUD ── */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '10px 20px', background: 'rgba(8,16,26,0.97)',
-        borderBottom: '1px solid #1a2d3f', zIndex: 1001, flexWrap: 'wrap', gap: '10px'
+        borderBottom: '1px solid #1a2d3f', zIndex: 1001, flexWrap: 'wrap', gap: '10px',
       }}>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={onBack} style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #4ade80', borderRadius: '8px', cursor: 'pointer', fontFamily: 'monospace' }}>← Back</button>
-          <button onClick={() => setShowSettings(!showSettings)} style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #22d3ee', borderRadius: '8px', cursor: 'pointer', fontFamily: 'monospace' }}>⚙ Settings</button>
+          <button
+            onClick={onBack}
+            style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #4ade80', borderRadius: '8px', cursor: 'pointer', fontFamily: 'monospace' }}
+          >← Back</button>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #22d3ee', borderRadius: '8px', cursor: 'pointer', fontFamily: 'monospace' }}
+          >⚙ Settings</button>
         </div>
-        
+
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '10px', color: '#4a7a9b' }}>SCORE</div>
@@ -1515,7 +1576,7 @@ const SnakeGame = ({ onBack }) => {
             </div>
           )}
         </div>
-        
+
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div style={{ padding: '4px 12px', background: 'rgba(34,211,238,0.1)', borderRadius: '20px', fontSize: '12px', color: '#22d3ee' }}>{themeName}</div>
           <div style={{ display: 'flex', gap: '5px' }}>
@@ -1527,52 +1588,98 @@ const SnakeGame = ({ onBack }) => {
           </div>
         </div>
       </div>
-      
+
+      {/* ── Settings Panel ── */}
       {showSettings && (
-        <div style={{ position: 'fixed', top: '70px', right: '20px', width: '320px', background: 'rgba(8,16,26,0.98)', border: '1px solid #1a2d3f', borderRadius: '12px', padding: '20px', zIndex: 1002, backdropFilter: 'blur(10px)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+        <div style={{
+          position: 'fixed', top: '70px', right: '20px', width: '320px',
+          background: 'rgba(8,16,26,0.98)', border: '1px solid #1a2d3f', borderRadius: '12px',
+          padding: '20px', zIndex: 1002, backdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ color: '#4ade80', margin: 0 }}>Game Settings</h3>
             <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '20px', cursor: 'pointer' }}>✕</button>
           </div>
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', marginBottom: '10px' }}>
-              <span>🔊 Sound Effects</span>
-              <input type="checkbox" checked={settings.sound} onChange={(e) => setSettings({...settings, sound: e.target.checked})} />
-            </label>
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', marginBottom: '10px' }}>
-              <span>⚡ Combo System</span>
-              <input type="checkbox" checked={settings.combo} onChange={(e) => setSettings({...settings, combo: e.target.checked})} />
-            </label>
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', marginBottom: '10px' }}>
-              <span>👾 Enemy Snakes</span>
-              <input type="checkbox" checked={settings.enemies} onChange={(e) => setSettings({...settings, enemies: e.target.checked})} />
-            </label>
-            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', marginBottom: '10px' }}>
-              <span>✨ Screen Flash</span>
-              <input type="checkbox" checked={settings.flash} onChange={(e) => setSettings({...settings, flash: e.target.checked})} />
-            </label>
+            {[
+              { key: 'sound',   label: '🔊 Sound Effects' },
+              { key: 'combo',   label: '⚡ Combo System'  },
+              { key: 'enemies', label: '👾 Enemy Snakes'  },
+              { key: 'flash',   label: '✨ Screen Flash'  },
+            ].map(({ key, label }) => (
+              <label key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', marginBottom: '10px' }}>
+                <span>{label}</span>
+                <input
+                  type="checkbox"
+                  checked={settings[key]}
+                  onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
+                />
+              </label>
+            ))}
           </div>
-          <button onClick={saveSettings} style={{ width: '100%', padding: '10px', background: '#4ade80', color: '#052e16', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Save Settings</button>
+          <button
+            onClick={saveSettings}
+            style={{ width: '100%', padding: '10px', background: '#4ade80', color: '#052e16', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+          >Save Settings</button>
         </div>
       )}
-      
+
+      {/* ── Canvas ── */}
       <div style={{ width: '100%', height: '100%', paddingTop: '70px' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'pointer' }} />
       </div>
-      
-      <div id="event-banner" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.95)', border: '2px solid #fbbf24', borderRadius: '12px', padding: '20px 40px', textAlign: 'center', zIndex: 1002, display: 'none', flexDirection: 'column', alignItems: 'center', gap: '5px' }}></div>
-      
-      <div id="gameOverlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(4,8,13,0.95)', backdropFilter: 'blur(6px)', zIndex: 1002, gap: '20px' }}>
+
+      {/* ── Event Banner ── */}
+      <div
+        id="event-banner"
+        style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.95)', border: '2px solid #fbbf24', borderRadius: '12px',
+          padding: '20px 40px', textAlign: 'center', zIndex: 1002,
+          display: 'none', flexDirection: 'column', alignItems: 'center', gap: '5px',
+        }}
+      />
+
+      {/* ── Game Over Overlay ── */}
+      <div
+        id="gameOverlay"
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(4,8,13,0.95)', backdropFilter: 'blur(6px)', zIndex: 1002, gap: '20px',
+        }}
+      >
         <div style={{ fontSize: '64px' }}>💀</div>
         <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#f87171', fontFamily: 'monospace' }}>GAME OVER</div>
         <div style={{ fontSize: '24px', color: '#4ade80' }}>Score: {score}</div>
-        <button onClick={startGame} style={{ padding: '12px 40px', background: '#4ade80', color: '#052e16', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>PLAY AGAIN</button>
+        {score >= best && best > 0 && (
+          <div style={{ fontSize: '18px', color: '#fbbf24' }}>🏆 New High Score!</div>
+        )}
+        <button
+          onClick={startGame}
+          style={{ padding: '12px 40px', background: '#4ade80', color: '#052e16', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}
+        >PLAY AGAIN</button>
       </div>
-      
-      <div id="pauseOverlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(4,8,13,0.95)', backdropFilter: 'blur(6px)', zIndex: 1002, gap: '20px' }}>
+
+      {/* ── Pause Overlay ── */}
+      <div
+        id="pauseOverlay"
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(4,8,13,0.95)', backdropFilter: 'blur(6px)', zIndex: 1002, gap: '20px',
+        }}
+      >
         <div style={{ fontSize: '64px' }}>⏸️</div>
         <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#22d3ee', fontFamily: 'monospace' }}>PAUSED</div>
-        <button onClick={() => { if (gameRef.current) gameRef.current.paused = false; document.getElementById('pauseOverlay').style.display = 'none'; }} style={{ padding: '12px 40px', background: '#22d3ee', color: '#052e16', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>RESUME</button>
+        <button
+          onClick={() => {
+            if (gameRef.current) gameRef.current.paused = false;
+            document.getElementById('pauseOverlay').style.display = 'none';
+          }}
+          style={{ padding: '12px 40px', background: '#22d3ee', color: '#052e16', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}
+        >RESUME</button>
       </div>
     </div>
   );
