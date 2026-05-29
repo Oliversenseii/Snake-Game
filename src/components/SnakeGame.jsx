@@ -1500,7 +1500,6 @@ const SnakeGame = ({ onBack }) => {
     if (ana.health <= 0) {
       // Anaconda dies
       ana.active = false;
-      const gainLen = ana.body.length;
       addScore(ANACONDA_CONFIG.scoreReward, 'enemy');
       floatText('👑 QUEEN DEFEATED! +' + ANACONDA_CONFIG.scoreReward + '!', ana.body[0], '#fbbf24');
       showEventBanner('🏆', 'QUEEN DEFEATED!', `+${ANACONDA_CONFIG.scoreReward} points!`);
