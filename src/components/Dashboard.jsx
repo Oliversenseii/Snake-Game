@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Leaderboard from './Leaderboard';
-import GameMechanicsButton from './GameMechanicsButton';
 
 const Dashboard = ({ onPlay }) => {
   const { user, highScore, logout } = useAuth();
@@ -51,7 +50,6 @@ const Dashboard = ({ onPlay }) => {
               >
                 🎮 Start Game
               </button>
-              <GameMechanicsButton />
             </div>
           </div>
 

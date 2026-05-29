@@ -20,10 +20,8 @@ const SnakeGame = ({ onBack }) => {
     flash: true,
   });
 
-  // Audio context for sound effects
   const audioCtxRef = useRef(null);
 
-  // Initialize audio context
   const initAudio = () => {
     if (!audioCtxRef.current && settings.sound) {
       try {
@@ -35,28 +33,20 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
-  // Play sound effect
   const playSound = (type) => {
     if (!settings.sound) return;
-
     try {
       if (!audioCtxRef.current) {
         initAudio();
         if (!audioCtxRef.current) return;
       }
-
       const ctx = audioCtxRef.current;
-
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
+      if (ctx.state === 'suspended') ctx.resume();
       if (ctx.state === 'closed') {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtxRef.current = new AudioContext();
         return;
       }
-
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -69,28 +59,24 @@ const SnakeGame = ({ onBack }) => {
           osc.type = 'sine';
           gain.gain.setValueAtTime(0.15, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
-          osc.start(now);
-          osc.stop(now + 0.15);
+          osc.start(now); osc.stop(now + 0.15);
           break;
         case 'gold':
           osc.frequency.setValueAtTime(659.25, now);
           osc.type = 'triangle';
           gain.gain.setValueAtTime(0.2, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-          osc.start(now);
-          osc.stop(now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
           setTimeout(() => {
             if (ctx.state === 'closed') return;
             const osc2 = ctx.createOscillator();
             const gain2 = ctx.createGain();
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
+            osc2.connect(gain2); gain2.connect(ctx.destination);
             osc2.frequency.setValueAtTime(783.99, now + 0.1);
             osc2.type = 'triangle';
             gain2.gain.setValueAtTime(0.15, now + 0.1);
             gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
-            osc2.start(now + 0.1);
-            osc2.stop(now + 0.3);
+            osc2.start(now + 0.1); osc2.stop(now + 0.3);
           }, 100);
           break;
         case 'bomb':
@@ -99,8 +85,7 @@ const SnakeGame = ({ onBack }) => {
           osc.type = 'sawtooth';
           gain.gain.setValueAtTime(0.2, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
-          osc.start(now);
-          osc.stop(now + 0.3);
+          osc.start(now); osc.stop(now + 0.3);
           break;
         case 'powerup': {
           const freqs = [440, 554.37, 659.25, 880];
@@ -110,14 +95,12 @@ const SnakeGame = ({ onBack }) => {
               if (ctx.state === 'closed') return;
               const osc2 = ctx.createOscillator();
               const gain2 = ctx.createGain();
-              osc2.connect(gain2);
-              gain2.connect(ctx.destination);
+              osc2.connect(gain2); gain2.connect(ctx.destination);
               osc2.frequency.setValueAtTime(freq, ctx.currentTime);
               osc2.type = 'triangle';
               gain2.gain.setValueAtTime(0.1, ctx.currentTime);
               gain2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
-              osc2.start(ctx.currentTime);
-              osc2.stop(ctx.currentTime + 0.15);
+              osc2.start(ctx.currentTime); osc2.stop(ctx.currentTime + 0.15);
             }, delay);
           });
           break;
@@ -128,28 +111,24 @@ const SnakeGame = ({ onBack }) => {
           osc.type = 'sawtooth';
           gain.gain.setValueAtTime(0.2, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
-          osc.start(now);
-          osc.stop(now + 0.3);
+          osc.start(now); osc.stop(now + 0.3);
           break;
         case 'eatEnemy':
           osc.frequency.setValueAtTime(880, now);
           osc.type = 'square';
           gain.gain.setValueAtTime(0.2, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-          osc.start(now);
-          osc.stop(now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
           setTimeout(() => {
             if (ctx.state === 'closed') return;
             const osc2 = ctx.createOscillator();
             const gain2 = ctx.createGain();
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
+            osc2.connect(gain2); gain2.connect(ctx.destination);
             osc2.frequency.setValueAtTime(523.25, now + 0.15);
             osc2.type = 'sine';
             gain2.gain.setValueAtTime(0.15, now + 0.15);
             gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-            osc2.start(now + 0.15);
-            osc2.stop(now + 0.35);
+            osc2.start(now + 0.15); osc2.stop(now + 0.35);
           }, 150);
           break;
         case 'wall':
@@ -158,8 +137,7 @@ const SnakeGame = ({ onBack }) => {
           osc.type = 'sawtooth';
           gain.gain.setValueAtTime(0.15, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
-          osc.start(now);
-          osc.stop(now + 0.25);
+          osc.start(now); osc.stop(now + 0.25);
           break;
         case 'gameOver':
           osc.frequency.setValueAtTime(440, now);
@@ -167,8 +145,7 @@ const SnakeGame = ({ onBack }) => {
           osc.type = 'sawtooth';
           gain.gain.setValueAtTime(0.25, now);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
-          osc.start(now);
-          osc.stop(now + 0.6);
+          osc.start(now); osc.stop(now + 0.6);
           break;
         default:
           break;
@@ -178,7 +155,6 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
-  // ─── FIX: Load best score once on mount, store in ref so it's always fresh ───
   const bestRef = useRef(0);
 
   useEffect(() => {
@@ -190,9 +166,7 @@ const SnakeGame = ({ onBack }) => {
           .select('high_score')
           .eq('user_id', user.id)
           .maybeSingle();
-        if (!error && data) {
-          freshBest = data.high_score;
-        }
+        if (!error && data) freshBest = data.high_score;
       } else {
         const localBest = localStorage.getItem('snkBest5');
         if (localBest) freshBest = parseInt(localBest) || 0;
@@ -225,35 +199,25 @@ const SnakeGame = ({ onBack }) => {
     };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── FIX: saveScoreToDB always reads from gameRef (never stale state) ───
   const saveScoreToDB = async (newScore) => {
     const currentBest = gameRef.current ? gameRef.current.best : bestRef.current;
-
     if (newScore > currentBest) {
-      // Update all sources of truth
       bestRef.current = newScore;
       if (gameRef.current) gameRef.current.best = newScore;
       setBest(newScore);
       localStorage.setItem('snkBest5', newScore);
-
       if (user) {
         const username =
           user.user_metadata?.username || user.email?.split('@')[0] || 'Player';
         const { error } = await supabase
           .from('scores')
           .upsert(
-            {
-              user_id: user.id,
-              high_score: newScore,
-              username,
-              updated_at: new Date(),
-            },
+            { user_id: user.id, high_score: newScore, username, updated_at: new Date() },
             { onConflict: 'user_id' }
           );
         if (error) console.error('Error saving score:', error);
       }
     } else {
-      // Still persist locally even if not a new high score
       localStorage.setItem('snkBest5', Math.max(newScore, currentBest));
     }
   };
@@ -266,7 +230,6 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
-  // Constants
   const CELL = 22;
   const MIN_SPEED = 80;
   const START_SPEED = 250;
@@ -311,7 +274,7 @@ const SnakeGame = ({ onBack }) => {
     { score: 6,  name: 'Frozen World ❄️', bg: '#010d18', grid: '#031525', wall: '#164e63', wallHighlight: 'rgba(186,230,253,0.2)', snakeBody: '#7dd3fc', snakeHead: '#e0f2fe', eye: '#01161e', tongue: '#38bdf8', stars: true,  bubbles: false, particles: false, gridColor: '#041a2e', mechanic: 'slippery' },
     { score: 7,  name: 'Cyber Grid ⚡',   bg: '#000a0a', grid: '#001515', wall: '#134e4a', wallHighlight: 'rgba(45,212,191,0.25)', snakeBody: '#2dd4bf', snakeHead: '#ccfbf1', eye: '#001a18', tongue: '#f0abfc', stars: false, bubbles: false, particles: false, gridColor: '#001a1a', mechanic: 'electricBarriers' },
     { score: 8,  name: 'Toxic Area ☢️',   bg: '#030a00', grid: '#071200', wall: '#3f6212', wallHighlight: 'rgba(163,230,53,0.2)',  snakeBody: '#84cc16', snakeHead: '#d9f99d', eye: '#0a1500', tongue: '#86efac', stars: false, bubbles: false, particles: false, gridColor: '#0a1600', mechanic: 'poisonFood' },
-    { score: 9,  name: 'Storm Zone 🌪️',  bg: '#0d0d0d', grid: '#1a1a1a', wall: '#374151', wallHighlight: 'rgba(209,213,219,0.15)',snakeBody: '#d1d5db', snakeHead: '#f9fafb', eye: '#111827', tongue: '#60a5fa', stars: false, bubbles: false, particles: false, gridColor: '#1a1a1a', mechanic: 'windPush' },
+    { score: 9,  name: 'Storm Zone 🌪️',  bg: '#0d0d0d', grid: '#1a1a1a', wall: '#374151', wallHighlight: 'rgba(209,213,219,0.15)',snakeBody: '#d1d5db', snakeHead: '#f9fafb', eye: '#111827', tongue: '#60a5fa', stars: false, bubbles: false, particles: false, gridColor: '#1a1a1a' },
     { score: 10, name: 'Void Realm 👁️',  bg: '#000000', grid: '#050505', wall: '#1c1917', wallHighlight: 'rgba(255,255,255,0.05)',snakeBody: '#a8a29e', snakeHead: '#fafaf9', eye: '#000',    tongue: '#dc2626', stars: false, bubbles: false, particles: false, gridColor: '#080808', mechanic: 'glitch' },
     { score: 11, name: 'Desert 🏜️',       bg: '#1c1206', grid: '#261a09', wall: '#78350f', wallHighlight: 'rgba(251,191,36,0.15)', snakeBody: '#d97706', snakeHead: '#fef3c7', eye: '#1c0f00', tongue: '#f87171', stars: false, bubbles: false, particles: false, gridColor: '#201509', mechanic: 'sandstorm' },
     { score: 12, name: 'Portal Lab 🌌',   bg: '#05001a', grid: '#0a0030', wall: '#2e1065', wallHighlight: 'rgba(139,92,246,0.2)',  snakeBody: '#8b5cf6', snakeHead: '#ede9fe', eye: '#02000d', tongue: '#f472b6', stars: true,  bubbles: false, particles: false, gridColor: '#080025', mechanic: 'manyPortals' },
@@ -349,7 +312,7 @@ const SnakeGame = ({ onBack }) => {
       running: false,
       paused: false,
       score: 0,
-      best: freshBest,   // ← always seeded with the real current best
+      best: freshBest,
       snake: [],
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
@@ -376,9 +339,6 @@ const SnakeGame = ({ onBack }) => {
       MAP_THEMES,
       electricBarriers: [],
       electricTimer: null,
-      windDir: { x: 0, y: 0 },
-      windTimer: null,
-      windActive: false,
       glitchActive: false,
       glitchTimer: null,
       sandstormAlpha: 0,
@@ -464,7 +424,6 @@ const SnakeGame = ({ onBack }) => {
     spawnSpecificFood(type);
   };
 
-  // ─── FIX: addScore always uses gameRef.current.best (never stale closure) ───
   const addScore = async (pts, soundType = 'eat') => {
     const oldLevel = Math.floor(gameRef.current.score / 10);
     const newScoreValue = gameRef.current.score + pts;
@@ -490,7 +449,6 @@ const SnakeGame = ({ onBack }) => {
       }
     }
 
-    // ─── FIX: compare against gameRef.current.best, not stale `best` state ───
     if (gameRef.current.score > gameRef.current.best) {
       await saveScoreToDB(gameRef.current.score);
     }
@@ -506,7 +464,6 @@ const SnakeGame = ({ onBack }) => {
     const theme = getTheme();
     setThemeName(theme.name);
     setCombo(gameRef.current.comboCount || 1);
-
     const powerupList = Object.keys(gameRef.current.powerups).map(t => POWERUP_INFO[t]);
     setPowerups(powerupList);
   };
@@ -572,7 +529,6 @@ const SnakeGame = ({ onBack }) => {
 
   const initMechanic = (th) => {
     if (gameRef.current.electricTimer) clearInterval(gameRef.current.electricTimer);
-    if (gameRef.current.windTimer) clearInterval(gameRef.current.windTimer);
     if (gameRef.current.glitchTimer) clearTimeout(gameRef.current.glitchTimer);
     if (gameRef.current.sandstormTimer) clearInterval(gameRef.current.sandstormTimer);
     if (gameRef.current.disappearTimer) clearInterval(gameRef.current.disappearTimer);
@@ -580,7 +536,6 @@ const SnakeGame = ({ onBack }) => {
     if (gameRef.current.movingWallsTimer) clearInterval(gameRef.current.movingWallsTimer);
 
     gameRef.current.electricBarriers = [];
-    gameRef.current.windActive = false;
     gameRef.current.glitchActive = false;
     gameRef.current.sandstormAlpha = 0;
     gameRef.current.sandstormTarget = 0;
@@ -591,19 +546,6 @@ const SnakeGame = ({ onBack }) => {
     if (th.mechanic === 'electricBarriers') {
       rebuildElectricBarriers();
       gameRef.current.electricTimer = setInterval(() => rebuildElectricBarriers(), 2500);
-    }
-
-    if (th.mechanic === 'windPush') {
-      gameRef.current.windTimer = setInterval(() => {
-        if (!gameRef.current.running || gameRef.current.paused) return;
-        gameRef.current.windActive = !gameRef.current.windActive;
-        if (gameRef.current.windActive) {
-          const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
-          gameRef.current.windDir = dirs[rndInt(dirs.length)];
-          showEventBanner('🌪️', 'WIND!', 'Watch out for wind gusts!');
-          setTimeout(() => { gameRef.current.windActive = false; }, 3000);
-        }
-      }, 6000);
     }
 
     if (th.mechanic === 'glitch') {
@@ -781,9 +723,7 @@ const SnakeGame = ({ onBack }) => {
       idx === 0 ? 'ENEMY SNAKE!' : idx === 1 ? '2ND SNAKE!' : '3RD SNAKE!',
       idx === 0 ? 'Eat the head to win!' : idx === 1 ? 'Two enemies now!' : 'THREE enemies! 💀'
     );
-
     playSound('enemy');
-
     if (!gameRef.current.enemyLoop) {
       gameRef.current.enemyLoop = setInterval(tickEnemies, ENEMY_SPEED);
     }
@@ -872,7 +812,6 @@ const SnakeGame = ({ onBack }) => {
     }
     gameRef.current.lastEatTime = now;
     if (gameRef.current.comboTimer) clearTimeout(gameRef.current.comboTimer);
-
     if (gameRef.current.comboCount >= 2) {
       gameRef.current.comboTimer = setTimeout(() => {
         gameRef.current.comboCount = 0;
@@ -916,9 +855,7 @@ const SnakeGame = ({ onBack }) => {
     if (gameRef.current.loop) clearInterval(gameRef.current.loop);
     if (gameRef.current.enemyLoop) clearInterval(gameRef.current.enemyLoop);
     if (gameRef.current.bonusLoop) clearInterval(gameRef.current.bonusLoop);
-
     playSound('gameOver');
-
     const overlay = document.getElementById('gameOverlay');
     if (overlay) overlay.style.display = 'flex';
   };
@@ -949,12 +886,8 @@ const SnakeGame = ({ onBack }) => {
     const ROWS = gameRef.current.ROWS;
 
     gameRef.current.dir = gameRef.current.nextDir;
-    let dx = gameRef.current.dir.x, dy = gameRef.current.dir.y;
-
-    if (gameRef.current.windActive && Math.random() < 0.30) {
-      if (dx === 0) dx = gameRef.current.windDir.x;
-      else if (dy === 0) dy = gameRef.current.windDir.y;
-    }
+    const dx = gameRef.current.dir.x;
+    const dy = gameRef.current.dir.y;
 
     const head = gameRef.current.snake[0];
     const newHead = {
@@ -1177,7 +1110,6 @@ const SnakeGame = ({ onBack }) => {
     if (W === 0 || H === 0 || COLS === 0 || ROWS === 0) return;
 
     const th = getTheme();
-
     gameRef.current.rainbowHue = (gameRef.current.rainbowHue + 2) % 360;
 
     if (gameRef.current.glitchActive) {
@@ -1196,16 +1128,10 @@ const SnakeGame = ({ onBack }) => {
     ctx.strokeStyle = th.gridColor || th.grid;
     ctx.lineWidth = 0.5;
     for (let x = 0; x <= COLS; x++) {
-      ctx.beginPath();
-      ctx.moveTo(x * CELL, 0);
-      ctx.lineTo(x * CELL, H);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x * CELL, 0); ctx.lineTo(x * CELL, H); ctx.stroke();
     }
     for (let y = 0; y <= ROWS; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, y * CELL);
-      ctx.lineTo(W, y * CELL);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); ctx.stroke();
     }
 
     if (gameRef.current.waterLevel > 0) {
@@ -1262,14 +1188,12 @@ const SnakeGame = ({ onBack }) => {
     gameRef.current.foods.forEach(food => {
       const fx = food.x * CELL + CELL / 2;
       const fy = food.y * CELL + CELL / 2;
-
       if (food.type === 'gold') {
         ctx.globalAlpha = 0.7 + Math.sin(Date.now() / 200) * 0.3;
       }
       ctx.fillStyle = '#fff';
       ctx.fillText(food.info.emoji, fx, fy + 1);
       ctx.globalAlpha = 1;
-
       if (food.type !== 'apple' && food.info.vanish) {
         const elapsed = Date.now() - food.born;
         const pct = Math.max(0, 1 - (elapsed / food.info.vanish));
@@ -1280,13 +1204,6 @@ const SnakeGame = ({ onBack }) => {
         ctx.stroke();
       }
     });
-
-    if (gameRef.current.windActive) {
-      ctx.globalAlpha = 0.2;
-      ctx.fillStyle = 'rgba(200,220,255,0.3)';
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = 1;
-    }
 
     gameRef.current.enemies.forEach(enemy => {
       if (!enemy.active) return;
@@ -1362,18 +1279,15 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
-  // ─── FIX: startGame fetches fresh best before initializing ───
   const startGame = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Stop any running game first
     if (gameRef.current?.loop) clearInterval(gameRef.current.loop);
     if (gameRef.current?.enemyLoop) clearInterval(gameRef.current.enemyLoop);
     if (gameRef.current?.bonusLoop) clearInterval(gameRef.current.bonusLoop);
 
-    // ── Always fetch the freshest best score before a new game starts ──
-    let freshBest = bestRef.current; // start with what we already know
+    let freshBest = bestRef.current;
     if (user) {
       try {
         const { data, error } = await supabase
@@ -1381,9 +1295,7 @@ const SnakeGame = ({ onBack }) => {
           .select('high_score')
           .eq('user_id', user.id)
           .maybeSingle();
-        if (!error && data && data.high_score > freshBest) {
-          freshBest = data.high_score;
-        }
+        if (!error && data && data.high_score > freshBest) freshBest = data.high_score;
       } catch (_) {}
     } else {
       const localBest = parseInt(localStorage.getItem('snkBest5') || '0');
@@ -1403,7 +1315,6 @@ const SnakeGame = ({ onBack }) => {
     const COLS = Math.floor(width / CELL);
     const ROWS = Math.floor(height / CELL);
 
-    // ── Pass freshBest into initializeGame so gameRef.current.best is correct ──
     gameRef.current = initializeGame(freshBest);
     gameRef.current.COLS = COLS;
     gameRef.current.ROWS = ROWS;
@@ -1529,7 +1440,7 @@ const SnakeGame = ({ onBack }) => {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: '#04080d', zIndex: 1000 }}>
-      {/* ── HUD ── */}
+      {/* HUD */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -1589,7 +1500,7 @@ const SnakeGame = ({ onBack }) => {
         </div>
       </div>
 
-      {/* ── Settings Panel ── */}
+      {/* Settings Panel */}
       {showSettings && (
         <div style={{
           position: 'fixed', top: '70px', right: '20px', width: '320px',
@@ -1625,12 +1536,12 @@ const SnakeGame = ({ onBack }) => {
         </div>
       )}
 
-      {/* ── Canvas ── */}
+      {/* Canvas */}
       <div style={{ width: '100%', height: '100%', paddingTop: '70px' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'pointer' }} />
       </div>
 
-      {/* ── Event Banner ── */}
+      {/* Event Banner */}
       <div
         id="event-banner"
         style={{
@@ -1641,7 +1552,7 @@ const SnakeGame = ({ onBack }) => {
         }}
       />
 
-      {/* ── Game Over Overlay ── */}
+      {/* Game Over Overlay */}
       <div
         id="gameOverlay"
         style={{
@@ -1662,7 +1573,7 @@ const SnakeGame = ({ onBack }) => {
         >PLAY AGAIN</button>
       </div>
 
-      {/* ── Pause Overlay ── */}
+      {/* Pause Overlay */}
       <div
         id="pauseOverlay"
         style={{
