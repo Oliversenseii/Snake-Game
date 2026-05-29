@@ -11,34 +11,15 @@ const SnakeGame = ({ onBack }) => {
   const [themeName, setThemeName] = useState('Classic 🐍');
   const [combo, setCombo] = useState(1);
   const [powerups, setPowerups] = useState([]);
-  const [showSettings, setShowSettings] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(250);
-  const [settings, setSettings] = useState({
-    sound: true,
-    combo: true,
-    enemies: true,
-    flash: true,
-  });
 
   const audioCtxRef = useRef(null);
 
-  const initAudio = () => {
-    if (!audioCtxRef.current && settings.sound) {
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtxRef.current = new AudioContext();
-      } catch (e) {
-        console.log('Web Audio API not supported');
-      }
-    }
-  };
-
   const playSound = (type) => {
-    if (!settings.sound) return;
     try {
       if (!audioCtxRef.current) {
-        initAudio();
-        if (!audioCtxRef.current) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtxRef.current = new AudioContext();
       }
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
@@ -178,11 +159,6 @@ const SnakeGame = ({ onBack }) => {
 
     loadBestScore();
 
-    const savedSettings = localStorage.getItem('snkSettings');
-    if (savedSettings) {
-      try { setSettings(JSON.parse(savedSettings)); } catch (_) {}
-    }
-
     if (!audioCtxRef.current) {
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -219,14 +195,6 @@ const SnakeGame = ({ onBack }) => {
       }
     } else {
       localStorage.setItem('snkBest5', Math.max(newScore, currentBest));
-    }
-  };
-
-  const saveSettings = () => {
-    localStorage.setItem('snkSettings', JSON.stringify(settings));
-    setShowSettings(false);
-    if (settings.sound && audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
     }
   };
 
@@ -303,6 +271,7 @@ const SnakeGame = ({ onBack }) => {
   const wk = (x, y) => `${x},${y}`;
   const rndInt = (n) => Math.floor(Math.random() * n);
 
+  // Fully resets all game state — called fresh on every Play Again
   const initializeGame = (freshBest) => {
     const rest = shuffleArray(MAP_THEMES_POOL.slice(1));
     const MAP_THEMES = [MAP_THEMES_POOL[0], ...rest];
@@ -317,11 +286,11 @@ const SnakeGame = ({ onBack }) => {
       dir: { x: 1, y: 0 },
       nextDir: { x: 1, y: 0 },
       foods: [],
-      walls: new Set(),
+      walls: new Set(),          // ← always fresh Set
       speed: START_SPEED,
       loop: null,
       wallThreshold: 10,
-      enemies: [],
+      enemies: [],               // ← always fresh array
       enemyLoop: null,
       powerups: {},
       comboCount: 0,
@@ -330,7 +299,7 @@ const SnakeGame = ({ onBack }) => {
       currentEvent: null,
       eventTimer: null,
       eventThreshold: 30,
-      portals: [],
+      portals: [],               // ← always fresh array
       darkMode: false,
       themeIdx: 0,
       rainbowHue: 0,
@@ -344,9 +313,10 @@ const SnakeGame = ({ onBack }) => {
       sandstormAlpha: 0,
       sandstormTarget: 0,
       sandstormTimer: null,
-      disappearedTiles: new Set(),
+      disappearedTiles: new Set(), // ← always fresh Set
       disappearTimer: null,
-      waterLevel: 0,
+      waterLevel: 0,              // ← always starts at 0
+      waterRising: true,          // tide direction flag
       waterTimer: null,
       movingWallsTimer: null,
       COLS: 0,
@@ -498,14 +468,17 @@ const SnakeGame = ({ onBack }) => {
       }, 350);
     } else if (ev === 'portals') {
       showEventBanner('🌀', 'PORTALS!', 'Teleport portals appeared!');
+      // Clear any old portals first, then spawn fresh ones
       gameRef.current.portals = [];
       for (let i = 0; i < 2; i++) {
         const a = safePos(), b = safePos();
         if (a && b) gameRef.current.portals.push({ a, b });
       }
       setTimeout(() => {
-        gameRef.current.portals = [];
-        gameRef.current.currentEvent = null;
+        if (gameRef.current) {
+          gameRef.current.portals = [];
+          gameRef.current.currentEvent = null;
+        }
       }, 12000);
     }
   };
@@ -540,6 +513,7 @@ const SnakeGame = ({ onBack }) => {
     gameRef.current.sandstormAlpha = 0;
     gameRef.current.sandstormTarget = 0;
     gameRef.current.waterLevel = 0;
+    gameRef.current.waterRising = true;
 
     if (!th.mechanic) return;
 
@@ -582,17 +556,32 @@ const SnakeGame = ({ onBack }) => {
     }
 
     if (th.mechanic === 'risingWater') {
+      // Tide mechanic: rises to mid-screen, then recedes, then repeats
+      const TIDE_MAX = () => Math.floor(gameRef.current.ROWS * 0.5); // exactly half
+      gameRef.current.waterLevel = 0;
+      gameRef.current.waterRising = true;
+
       gameRef.current.waterTimer = setInterval(() => {
         if (!gameRef.current.running || gameRef.current.paused) return;
-        const prev = gameRef.current.waterLevel;
-        gameRef.current.waterLevel = Math.min(
-          gameRef.current.waterLevel + 1,
-          Math.floor(gameRef.current.ROWS * 0.6)
-        );
-        if (gameRef.current.waterLevel !== prev) {
-          showEventBanner('🌊', 'WATER RISING!', 'The flood is rising!');
+
+        if (gameRef.current.waterRising) {
+          const prev = gameRef.current.waterLevel;
+          gameRef.current.waterLevel = Math.min(gameRef.current.waterLevel + 1, TIDE_MAX());
+          if (gameRef.current.waterLevel !== prev) {
+            if (gameRef.current.waterLevel === TIDE_MAX()) {
+              showEventBanner('🌊', 'HIGH TIDE!', 'The tide is receding...');
+              gameRef.current.waterRising = false; // switch to receding
+            }
+          }
+        } else {
+          const prev = gameRef.current.waterLevel;
+          gameRef.current.waterLevel = Math.max(gameRef.current.waterLevel - 1, 0);
+          if (gameRef.current.waterLevel !== prev && gameRef.current.waterLevel === 0) {
+            showEventBanner('🌊', 'LOW TIDE!', 'The tide is coming back...');
+            gameRef.current.waterRising = true; // switch back to rising
+          }
         }
-      }, 3000);
+      }, 2500);
     }
 
     if (th.mechanic === 'movingWalls') {
@@ -691,7 +680,6 @@ const SnakeGame = ({ onBack }) => {
   };
 
   const spawnEnemy = (idx) => {
-    if (!settings.enemies) return;
     if (gameRef.current.enemies.length > idx) return;
     const cfg = ENEMY_CONFIGS[idx];
     const COLS = gameRef.current.COLS;
@@ -803,7 +791,6 @@ const SnakeGame = ({ onBack }) => {
   };
 
   const registerCombo = () => {
-    if (!settings.combo) return 1;
     const now = Date.now();
     if (now - gameRef.current.lastEatTime < COMBO_WINDOW) {
       gameRef.current.comboCount = Math.min(gameRef.current.comboCount + 1, 8);
@@ -850,11 +837,28 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
+  // Clears all active timers and state from the PREVIOUS game
+  const clearAllTimers = () => {
+    if (!gameRef.current) return;
+    if (gameRef.current.loop) { clearInterval(gameRef.current.loop); gameRef.current.loop = null; }
+    if (gameRef.current.enemyLoop) { clearInterval(gameRef.current.enemyLoop); gameRef.current.enemyLoop = null; }
+    if (gameRef.current.bonusLoop) { clearInterval(gameRef.current.bonusLoop); gameRef.current.bonusLoop = null; }
+    if (gameRef.current.electricTimer) { clearInterval(gameRef.current.electricTimer); gameRef.current.electricTimer = null; }
+    if (gameRef.current.glitchTimer) { clearTimeout(gameRef.current.glitchTimer); gameRef.current.glitchTimer = null; }
+    if (gameRef.current.sandstormTimer) { clearInterval(gameRef.current.sandstormTimer); gameRef.current.sandstormTimer = null; }
+    if (gameRef.current.disappearTimer) { clearInterval(gameRef.current.disappearTimer); gameRef.current.disappearTimer = null; }
+    if (gameRef.current.waterTimer) { clearInterval(gameRef.current.waterTimer); gameRef.current.waterTimer = null; }
+    if (gameRef.current.movingWallsTimer) { clearInterval(gameRef.current.movingWallsTimer); gameRef.current.movingWallsTimer = null; }
+    if (gameRef.current.comboTimer) { clearTimeout(gameRef.current.comboTimer); gameRef.current.comboTimer = null; }
+    if (gameRef.current.bonusFoodTimers) {
+      gameRef.current.bonusFoodTimers.forEach(t => clearTimeout(t));
+      gameRef.current.bonusFoodTimers = [];
+    }
+  };
+
   const gameOver = () => {
     gameRef.current.running = false;
-    if (gameRef.current.loop) clearInterval(gameRef.current.loop);
-    if (gameRef.current.enemyLoop) clearInterval(gameRef.current.enemyLoop);
-    if (gameRef.current.bonusLoop) clearInterval(gameRef.current.bonusLoop);
+    clearAllTimers();
     playSound('gameOver');
     const overlay = document.getElementById('gameOverlay');
     if (overlay) overlay.style.display = 'flex';
@@ -1138,6 +1142,13 @@ const SnakeGame = ({ onBack }) => {
       const wy = H - gameRef.current.waterLevel * CELL;
       ctx.fillStyle = 'rgba(56,189,248,0.3)';
       ctx.fillRect(0, wy, W, H - wy);
+      // Draw tide line
+      ctx.strokeStyle = 'rgba(56,189,248,0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, wy);
+      ctx.lineTo(W, wy);
+      ctx.stroke();
     }
 
     gameRef.current.portals.forEach((portal) => {
@@ -1283,9 +1294,8 @@ const SnakeGame = ({ onBack }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (gameRef.current?.loop) clearInterval(gameRef.current.loop);
-    if (gameRef.current?.enemyLoop) clearInterval(gameRef.current.enemyLoop);
-    if (gameRef.current?.bonusLoop) clearInterval(gameRef.current.bonusLoop);
+    // Kill every timer from the previous game before wiping state
+    clearAllTimers();
 
     let freshBest = bestRef.current;
     if (user) {
@@ -1315,6 +1325,7 @@ const SnakeGame = ({ onBack }) => {
     const COLS = Math.floor(width / CELL);
     const ROWS = Math.floor(height / CELL);
 
+    // Replace gameRef entirely — no stale state can survive
     gameRef.current = initializeGame(freshBest);
     gameRef.current.COLS = COLS;
     gameRef.current.ROWS = ROWS;
@@ -1338,7 +1349,6 @@ const SnakeGame = ({ onBack }) => {
     updateHUD();
     renderCanvas();
 
-    if (gameRef.current.loop) clearInterval(gameRef.current.loop);
     gameRef.current.loop = setInterval(tick, gameRef.current.speed);
 
     const overlay = document.getElementById('gameOverlay');
@@ -1411,9 +1421,7 @@ const SnakeGame = ({ onBack }) => {
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
       window.removeEventListener('resize', handleResize);
-      if (gameRef.current?.loop) clearInterval(gameRef.current.loop);
-      if (gameRef.current?.enemyLoop) clearInterval(gameRef.current.enemyLoop);
-      if (gameRef.current?.bonusLoop) clearInterval(gameRef.current.bonusLoop);
+      clearAllTimers();
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         audioCtxRef.current.close().catch(() => {});
       }
@@ -1452,10 +1460,6 @@ const SnakeGame = ({ onBack }) => {
             onClick={onBack}
             style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #4ade80', borderRadius: '8px', cursor: 'pointer', fontFamily: 'monospace' }}
           >← Back</button>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #22d3ee', borderRadius: '8px', cursor: 'pointer', fontFamily: 'monospace' }}
-          >⚙ Settings</button>
         </div>
 
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -1499,42 +1503,6 @@ const SnakeGame = ({ onBack }) => {
           </div>
         </div>
       </div>
-
-      {/* Settings Panel */}
-      {showSettings && (
-        <div style={{
-          position: 'fixed', top: '70px', right: '20px', width: '320px',
-          background: 'rgba(8,16,26,0.98)', border: '1px solid #1a2d3f', borderRadius: '12px',
-          padding: '20px', zIndex: 1002, backdropFilter: 'blur(10px)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ color: '#4ade80', margin: 0 }}>Game Settings</h3>
-            <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-          </div>
-          <div style={{ marginBottom: '15px' }}>
-            {[
-              { key: 'sound',   label: '🔊 Sound Effects' },
-              { key: 'combo',   label: '⚡ Combo System'  },
-              { key: 'enemies', label: '👾 Enemy Snakes'  },
-              { key: 'flash',   label: '✨ Screen Flash'  },
-            ].map(({ key, label }) => (
-              <label key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', marginBottom: '10px' }}>
-                <span>{label}</span>
-                <input
-                  type="checkbox"
-                  checked={settings[key]}
-                  onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
-                />
-              </label>
-            ))}
-          </div>
-          <button
-            onClick={saveSettings}
-            style={{ width: '100%', padding: '10px', background: '#4ade80', color: '#052e16', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-          >Save Settings</button>
-        </div>
-      )}
 
       {/* Canvas */}
       <div style={{ width: '100%', height: '100%', paddingTop: '70px' }}>
