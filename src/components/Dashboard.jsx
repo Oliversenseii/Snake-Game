@@ -33,6 +33,16 @@ const THEMES = [
   { score: 130, name: 'Inferno 🔥',      mechanic: 'Moving Walls',     desc: 'Placed walls drift around the grid'             },
   { score: 140, name: 'Flooded Grid 🌊', mechanic: 'Rising Water',     desc: 'Tide rises to 50 % then recedes, kills on touch' },
   { score: 150, name: '💀 NIGHTMARE',    mechanic: 'Nightmare',        desc: 'Portals + frequent glitches + max enemies'      },
+  { score: 160, name: 'Aquarium 🐠',      mechanic: '—',                  desc: 'Fish & seaweed, bubble particles, teal snake'        },
+  { score: 170, name: 'Crystal Cave 💎',   mechanic: 'Disappearing Tiles', desc: 'Crystal shards crumble off the grid, holes kill'     },
+  { score: 180, name: 'Geyser Field 🌋',   mechanic: 'Moving Walls',       desc: 'Erupting vents, walls drift around the grid'         },
+  { score: 190, name: 'Abyssal Depth 🦑',  mechanic: 'Glitch',             desc: 'Pitch-black abyss, screen glitches constantly'       },
+  { score: 200, name: 'Magma Core 🔥',     mechanic: 'Rising Lava',        desc: 'Lava tide rises to 50% then recedes, kills on touch' },
+  { score: 210, name: 'Mushroom Forest 🍄', mechanic: 'Disappearing Tiles', desc: 'Bioluminescent caps, spores, tiles crumble beneath'  },
+  { score: 220, name: 'Ancient Ruins 🏛️',  mechanic: 'Moving Walls',       desc: 'Stone columns, torch flicker, walls drift around'    },
+  { score: 230, name: 'Quantum Realm ⚛️',  mechanic: 'Many Portals',       desc: '3 portal pairs, wave interference patterns'         },
+  { score: 240, name: 'Black Hole 🕳️',     mechanic: 'Nightmare',          desc: 'Accretion disk, portals + glitch + max enemies'      },
+  { score: 250, name: 'Genesis 💥',         mechanic: 'Nightmare',          desc: 'Rainbow snake, cosmic web, ultimate final challenge' },
 ];
 
 const ENEMIES = [
@@ -281,7 +291,7 @@ const MechanicsPanel = () => {
         <Card accent="#22d3ee">
           <SectionHeader emoji="🎨" title="Themes & Zones" subtitle="Theme changes every 10 points — order is randomised each game (Classic always first)" />
           <Table
-            headers={['Unlocks At', 'Theme', 'Special Mechanic', 'Description']}
+            headers={['Different Levels', 'Theme', 'Special Mechanic', 'Description']}
             rows={THEMES.map(t => [
               <span style={{ fontFamily: 'monospace', color: '#4ade80', fontWeight: '700' }}>{t.score}</span>,
               <span style={{ fontWeight: '600', color: '#e2e8f0', whiteSpace: 'nowrap' }}>{t.name}</span>,

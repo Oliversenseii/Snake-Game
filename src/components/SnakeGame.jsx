@@ -868,6 +868,655 @@ const SnakeGame = ({ onBack }) => {
         }
       }
     },
+    {
+      score: 16, name: 'Aquarium 🐠', level: 17,
+      bg: '#000d1a', grid: '#001a2e', wall: '#0c4a6e', wallHighlight: 'rgba(56,189,248,0.2)',
+      snakeBody: '#22d3ee', snakeHead: '#cffafe', eye: '#001a2e', tongue: '#34d399',
+      stars: false, bubbles: true, particles: false, gridColor: '#001524',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#000d1a';
+        ctx.fillRect(0, 0, W, H);
+        // Light shafts from surface
+        for (let i = 0; i < 6; i++) {
+          const rx = (0.08 + i * 0.16) * W;
+          ctx.save();
+          ctx.translate(rx + Math.sin(t * 0.001 + i * 0.7) * 18, 0);
+          const grad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+          grad.addColorStop(0, 'rgba(34,211,238,0.1)');
+          grad.addColorStop(1, 'rgba(34,211,238,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(-12, 0, 24, H * 0.65);
+          ctx.restore();
+        }
+        // Seaweed
+        for (let i = 0; i < 10; i++) {
+          const sx = (0.05 + i * 0.1) * W;
+          const sh = (0.14 + Math.sin(i * 1.7) * 0.07) * H;
+          ctx.strokeStyle = `rgba(52,211,153,${0.45 + Math.sin(i) * 0.2})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(sx, H);
+          for (let y = 0; y < sh; y += 10) {
+            ctx.quadraticCurveTo(
+              sx + Math.sin(t * 0.002 + y * 0.1 + i) * 12, H - y - 5,
+              sx + Math.sin(t * 0.002 + y * 0.1 + i + 1) * 8, H - y - 10
+            );
+          }
+          ctx.stroke();
+        }
+        // Rising bubbles
+        for (let i = 0; i < 22; i++) {
+          const bx = (Math.sin(i * 137.5) * 0.5 + 0.5) * W;
+          const by = (1 - ((t * 0.0004 + i * 0.045) % 1)) * H;
+          ctx.strokeStyle = `rgba(56,189,248,${0.25 + Math.sin(i * 2.3) * 0.1})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(bx, by, 2 + (i % 4), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        // Fish silhouettes
+        const fishColors = ['rgba(251,146,60,0.5)', 'rgba(244,114,182,0.45)', 'rgba(34,211,238,0.4)', 'rgba(251,191,36,0.45)', 'rgba(167,139,250,0.4)'];
+        for (let i = 0; i < 5; i++) {
+          const fx = ((t * (0.0003 + i * 0.0001) + i * 0.2) % 1.2 - 0.1) * W;
+          const fy = (0.18 + Math.sin(i * 1.3 + t * 0.001) * 0.12) * H + i * H * 0.1;
+          ctx.fillStyle = fishColors[i];
+          ctx.save();
+          ctx.translate(fx, fy);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 13, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-10, 0);
+          ctx.lineTo(-19, -6);
+          ctx.lineTo(-19, 6);
+          ctx.fill();
+          ctx.restore();
+        }
+        // Sandy bottom gradient
+        const sandGrad = ctx.createLinearGradient(0, H * 0.87, 0, H);
+        sandGrad.addColorStop(0, 'rgba(160,120,55,0)');
+        sandGrad.addColorStop(1, 'rgba(110,80,30,0.45)');
+        ctx.fillStyle = sandGrad;
+        ctx.fillRect(0, H * 0.87, W, H * 0.13);
+      }
+    },
+    {
+      score: 17, name: 'Crystal Cave 💎', level: 18,
+      bg: '#080012', grid: '#0f0020', wall: '#4c1d95', wallHighlight: 'rgba(167,139,250,0.3)',
+      snakeBody: '#a78bfa', snakeHead: '#ede9fe', eye: '#04000d', tongue: '#c084fc',
+      stars: false, bubbles: false, particles: false, gridColor: '#0d001e',
+      mechanic: 'disappearingTiles',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#080012';
+        ctx.fillRect(0, 0, W, H);
+        // Stalactites from ceiling
+        for (let i = 0; i < 14; i++) {
+          const cx = (0.03 + i * 0.07) * W;
+          const ch = (0.08 + Math.sin(i * 1.9) * 0.06) * H;
+          const hue = (255 + i * 10) % 360;
+          const glow = ctx.createLinearGradient(cx, 0, cx, ch);
+          glow.addColorStop(0, `hsla(${hue},100%,75%,0.65)`);
+          glow.addColorStop(1, `hsla(${hue},80%,55%,0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.moveTo(cx - 8, 0);
+          ctx.lineTo(cx + 8, 0);
+          ctx.lineTo(cx + 2, ch);
+          ctx.lineTo(cx - 2, ch);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // Stalagmites from floor
+        for (let i = 0; i < 12; i++) {
+          const cx = (0.04 + i * 0.08) * W;
+          const ch = (0.06 + Math.sin(i * 2.3 + 1) * 0.05) * H;
+          const hue = (275 + i * 12) % 360;
+          ctx.fillStyle = `hsla(${hue},75%,50%,0.35)`;
+          ctx.beginPath();
+          ctx.moveTo(cx - 7, H);
+          ctx.lineTo(cx + 7, H);
+          ctx.lineTo(cx + 1, H - ch);
+          ctx.lineTo(cx - 1, H - ch);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // Floating crystal shards
+        for (let i = 0; i < 18; i++) {
+          const kx = (Math.sin(i * 137.5) * 0.5 + 0.5) * W;
+          const ky = (Math.cos(i * 97.3) * 0.5 + 0.5) * H;
+          const hue = (250 + i * 15 + t * 0.05) % 360;
+          const alpha = 0.25 + Math.sin(t * 0.002 + i) * 0.18;
+          ctx.fillStyle = `hsla(${hue},100%,70%,${alpha})`;
+          ctx.save();
+          ctx.translate(kx, ky);
+          ctx.rotate(t * 0.001 + i);
+          ctx.beginPath();
+          ctx.moveTo(0, -7); ctx.lineTo(4, 0); ctx.lineTo(0, 7); ctx.lineTo(-4, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+        // Ambient glow pools
+        for (let i = 0; i < 4; i++) {
+          const px = (0.12 + i * 0.26) * W;
+          const hue = (255 + i * 28) % 360;
+          const grad = ctx.createRadialGradient(px, H * 0.5, 0, px, H * 0.5, 90);
+          grad.addColorStop(0, `hsla(${hue},100%,60%,0.07)`);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, H);
+        }
+      }
+    },
+    {
+      score: 18, name: 'Geyser Field 🌋', level: 19,
+      bg: '#0f0a00', grid: '#1a1200', wall: '#713f12', wallHighlight: 'rgba(251,191,36,0.2)',
+      snakeBody: '#fbbf24', snakeHead: '#fef9c3', eye: '#0f0800', tongue: '#f87171',
+      stars: false, bubbles: false, particles: true, gridColor: '#181000',
+      mechanic: 'movingWalls',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#0f0a00';
+        ctx.fillRect(0, 0, W, H);
+        // Sulfurous sky haze
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.45);
+        skyGrad.addColorStop(0, 'rgba(100,65,0,0.32)');
+        skyGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, H * 0.45);
+        // Rocky terrain
+        ctx.fillStyle = '#261500';
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        for (let x = 0; x <= W; x += 15) {
+          ctx.lineTo(x, H * 0.78 + Math.sin(x * 0.02 + 1) * H * 0.05);
+        }
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        ctx.fill();
+        // Geyser vents + eruptions
+        const vents = [0.08, 0.22, 0.38, 0.55, 0.70, 0.85];
+        vents.forEach((vx, i) => {
+          const phase = (t * 0.0018 + i * 0.55) % (Math.PI * 2);
+          const erupting = Math.sin(phase) > 0.55;
+          const eruption = Math.max(0, (Math.sin(phase) - 0.55) / 0.45);
+          ctx.fillStyle = '#1a0d00';
+          ctx.beginPath();
+          ctx.ellipse(vx * W, H * 0.78, 10, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          if (erupting) {
+            const geyserH = eruption * H * 0.62;
+            const grad = ctx.createLinearGradient(vx * W, H * 0.78, vx * W, H * 0.78 - geyserH);
+            grad.addColorStop(0, `rgba(251,191,36,${eruption * 0.7})`);
+            grad.addColorStop(0.35, `rgba(255,255,255,${eruption * 0.5})`);
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(vx * W, H * 0.78 - geyserH / 2, 8 + eruption * 22, geyserH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+        // Ground mist
+        for (let i = 0; i < 12; i++) {
+          const mx = (Math.sin(i * 73.1) * 0.5 + 0.5) * W;
+          const my = H * 0.76 + Math.sin(t * 0.001 + i) * 8;
+          ctx.fillStyle = `rgba(160,140,15,${0.04 + Math.sin(i * 1.7) * 0.02})`;
+          ctx.beginPath();
+          ctx.arc(mx, my, 22 + Math.sin(i) * 10, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    },
+    {
+      score: 19, name: 'Abyssal Depth 🦑', level: 20,
+      bg: '#000000', grid: '#030508', wall: '#0c1a2e', wallHighlight: 'rgba(56,189,248,0.1)',
+      snakeBody: '#1d4ed8', snakeHead: '#93c5fd', eye: '#000000', tongue: '#7c3aed',
+      stars: false, bubbles: true, particles: false, gridColor: '#040810',
+      mechanic: 'glitch',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+        // Bioluminescent orbs
+        for (let i = 0; i < 40; i++) {
+          const bx = (Math.sin(i * 137.5 + t * 0.00008) * 0.5 + 0.5) * W;
+          const by = (Math.cos(i * 97.3 + t * 0.00006) * 0.5 + 0.5) * H;
+          const pulse = Math.sin(t * 0.003 + i * 0.7);
+          const alpha = 0.28 + pulse * 0.22;
+          const hue = (180 + i * 8 + t * 0.02) % 360;
+          ctx.fillStyle = `hsla(${hue},100%,60%,${alpha})`;
+          ctx.beginPath();
+          ctx.arc(bx, by, 1.5 + pulse * 1, 0, Math.PI * 2);
+          ctx.fill();
+          // Soft glow halo
+          const grad = ctx.createRadialGradient(bx, by, 0, bx, by, 10 + pulse * 4);
+          grad.addColorStop(0, `hsla(${hue},100%,60%,0.12)`);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(bx, by, 10 + pulse * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Tentacles from edges
+        for (let i = 0; i < 6; i++) {
+          const fromRight = i % 2 === 1;
+          const tx = fromRight ? W : 0;
+          const ty = (0.12 + i * 0.16) * H;
+          const reach = (0.14 + Math.sin(t * 0.001 + i * 1.3) * 0.04) * W;
+          ctx.strokeStyle = `rgba(124,58,237,${0.22 + Math.sin(t * 0.002 + i) * 0.1})`;
+          ctx.lineWidth = 4 - (i % 3);
+          ctx.beginPath();
+          ctx.moveTo(tx, ty);
+          ctx.bezierCurveTo(
+            tx + (fromRight ? -reach : reach) * 0.5,
+            ty + Math.sin(t * 0.002 + i) * 30,
+            tx + (fromRight ? -reach : reach) * 0.85,
+            ty + Math.sin(t * 0.002 + i + 1) * 20,
+            tx + (fromRight ? -reach : reach),
+            ty + Math.sin(t * 0.003 + i) * 40
+          );
+          ctx.stroke();
+        }
+        // Depth vignette
+        const vign = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.8);
+        vign.addColorStop(0, 'rgba(0,0,0,0)');
+        vign.addColorStop(1, 'rgba(0,0,0,0.72)');
+        ctx.fillStyle = vign;
+        ctx.fillRect(0, 0, W, H);
+      }
+    },
+    {
+      score: 20, name: 'Magma Core 🔥', level: 21,
+      bg: '#1a0000', grid: '#2d0000', wall: '#7f1d1d', wallHighlight: 'rgba(251,113,133,0.3)',
+      snakeBody: '#fbbf24', snakeHead: '#fef08a', eye: '#1a0000', tongue: '#f87171',
+      stars: false, bubbles: false, particles: true, gridColor: '#220000',
+      mechanic: 'risingWater',
+      waterColor: 'rgba(239,68,68,0.38)', waterLineColor: 'rgba(239,68,68,0.85)',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#1a0000';
+        ctx.fillRect(0, 0, W, H);
+        // Magma convection columns
+        for (let i = 0; i < 6; i++) {
+          const lx = (0.08 + i * 0.16) * W;
+          const spd = 0.00018 + i * 0.00004;
+          const h = (0.4 + Math.sin(t * spd + i * 1.3) * 0.22) * H;
+          const grad = ctx.createLinearGradient(lx, H, lx, H - h);
+          grad.addColorStop(0, `rgba(239,68,68,${0.38 + Math.sin(t * spd * 2 + i) * 0.14})`);
+          grad.addColorStop(0.5, `rgba(251,146,60,${0.2 + Math.sin(t * spd + i) * 0.1})`);
+          grad.addColorStop(1, 'rgba(251,191,36,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(lx - 22, H - h, 44, h);
+        }
+        // Surface lava bubbles
+        for (let i = 0; i < 10; i++) {
+          const phase = (t * 0.0007 + i * 0.31) % (Math.PI * 2);
+          const bx = (0.05 + i * 0.1) * W + Math.sin(i * 1.7) * 18;
+          const by = H - 18 - Math.abs(Math.sin(phase)) * 28;
+          const br = 4 + Math.abs(Math.sin(phase)) * 7;
+          ctx.fillStyle = `rgba(239,68,68,${0.6 + Math.sin(phase) * 0.2})`;
+          ctx.beginPath();
+          ctx.arc(bx, by, br, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Glowing crust cracks
+        for (let i = 0; i < 8; i++) {
+          const cx = (Math.sin(i * 137.5) * 0.5 + 0.5) * W;
+          const cy = H * 0.28 + (Math.cos(i * 97.3) * 0.5 + 0.5) * H * 0.52;
+          const pulse = 0.28 + Math.sin(t * 0.004 + i) * 0.2;
+          ctx.strokeStyle = `rgba(251,113,133,${pulse})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(i * 2.1) * 35, cy + Math.sin(i * 2.1) * 22);
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(i * 2.1 + 2) * 22, cy + Math.sin(i * 2.1 + 2) * 35);
+          ctx.stroke();
+          const cGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 22);
+          cGrad.addColorStop(0, `rgba(239,68,68,${pulse * 0.32})`);
+          cGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = cGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Heat glow at bottom
+        const heatGrad = ctx.createLinearGradient(0, H * 0.62, 0, H);
+        heatGrad.addColorStop(0, 'rgba(239,68,68,0)');
+        heatGrad.addColorStop(1, `rgba(239,68,68,${0.18 + Math.sin(t * 0.003) * 0.06})`);
+        ctx.fillStyle = heatGrad;
+        ctx.fillRect(0, H * 0.62, W, H * 0.38);
+        // Floating embers
+        for (let i = 0; i < 28; i++) {
+          const ex = (Math.sin(i * 73.1) * 0.5 + 0.5) * W + Math.sin(t * 0.003 + i) * 16;
+          const ey = H - ((t * 0.0006 + i * 0.036) % 1) * H;
+          ctx.fillStyle = `rgba(251,191,36,${0.55 + Math.sin(t * 0.01 + i) * 0.3})`;
+          ctx.beginPath();
+          ctx.arc(ex, ey, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    },
+    {
+      score: 21, name: 'Mushroom Forest 🍄', level: 22,
+      bg: '#030d08', grid: '#071505', wall: '#1a3d1a', wallHighlight: 'rgba(134,239,172,0.2)',
+      snakeBody: '#86efac', snakeHead: '#d9f99d', eye: '#030d08', tongue: '#f0abfc',
+      stars: false, bubbles: false, particles: false, gridColor: '#061204',
+      mechanic: 'disappearingTiles',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#030d08';
+        ctx.fillRect(0, 0, W, H);
+        // Ground fog
+        const fogGrad = ctx.createLinearGradient(0, H * 0.75, 0, H);
+        fogGrad.addColorStop(0, 'rgba(134,239,172,0)');
+        fogGrad.addColorStop(1, 'rgba(20,60,20,0.4)');
+        ctx.fillStyle = fogGrad;
+        ctx.fillRect(0, H * 0.75, W, H * 0.25);
+        // Mushrooms
+        const mushrooms = [
+          { x: 0.06, size: 0.12, hue: 300 }, { x: 0.18, size: 0.08, hue: 340 },
+          { x: 0.30, size: 0.15, hue: 280 }, { x: 0.44, size: 0.09, hue: 320 },
+          { x: 0.58, size: 0.13, hue: 260 }, { x: 0.70, size: 0.07, hue: 310 },
+          { x: 0.82, size: 0.11, hue: 290 }, { x: 0.93, size: 0.08, hue: 350 },
+        ];
+        mushrooms.forEach((m, i) => {
+          const mx = m.x * W;
+          const mh = m.size * H;
+          const pulse = 0.5 + Math.sin(t * 0.002 + i * 1.3) * 0.3;
+          // Stem
+          ctx.fillStyle = 'rgba(200,220,180,0.5)';
+          ctx.fillRect(mx - mh * 0.15, H - mh * 0.8, mh * 0.3, mh * 0.8);
+          // Cap
+          ctx.fillStyle = `hsla(${m.hue},80%,50%,0.7)`;
+          ctx.beginPath();
+          ctx.ellipse(mx, H - mh * 0.8, mh * 0.6, mh * 0.5, 0, Math.PI, 0);
+          ctx.fill();
+          // Spots
+          ctx.fillStyle = `rgba(255,255,255,${pulse * 0.6})`;
+          for (let s = 0; s < 3; s++) {
+            ctx.beginPath();
+            ctx.arc(
+              mx + Math.cos(s * 2.1) * mh * 0.2,
+              H - mh * 1.1 + Math.sin(s * 2.1) * mh * 0.15,
+              mh * 0.06, 0, Math.PI * 2
+            );
+            ctx.fill();
+          }
+          // Bioluminescent glow
+          const glowGrad = ctx.createRadialGradient(mx, H - mh * 0.4, 0, mx, H - mh * 0.4, mh * 0.8);
+          glowGrad.addColorStop(0, `hsla(${m.hue},100%,60%,${pulse * 0.12})`);
+          glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = glowGrad;
+          ctx.fillRect(0, 0, W, H);
+        });
+        // Floating spores
+        for (let i = 0; i < 30; i++) {
+          const sx = (Math.sin(i * 137.5) * 0.5 + 0.5) * W + Math.sin(t * 0.001 + i) * 15;
+          const sy = (1 - ((t * 0.0003 + i * 0.033) % 1)) * H;
+          const hue = (280 + i * 15) % 360;
+          ctx.fillStyle = `hsla(${hue},100%,70%,${0.4 + Math.sin(t * 0.003 + i) * 0.2})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Mycelium network lines
+        ctx.strokeStyle = 'rgba(134,239,172,0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 6; i++) {
+          const nx = (Math.sin(i * 137.5) * 0.5 + 0.5) * W;
+          const ny = H * 0.7 + (Math.cos(i * 97.3) * 0.5 + 0.5) * H * 0.3;
+          const nx2 = (Math.sin((i + 1) * 137.5) * 0.5 + 0.5) * W;
+          const ny2 = H * 0.7 + (Math.cos((i + 1) * 97.3) * 0.5 + 0.5) * H * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(nx, ny);
+          ctx.quadraticCurveTo(W / 2, H * 0.82, nx2, ny2);
+          ctx.stroke();
+        }
+      }
+    },
+    {
+      score: 22, name: 'Ancient Ruins 🏛️', level: 23,
+      bg: '#0a0800', grid: '#150f00', wall: '#78350f', wallHighlight: 'rgba(251,191,36,0.2)',
+      snakeBody: '#d97706', snakeHead: '#fef3c7', eye: '#0a0800', tongue: '#f87171',
+      stars: false, bubbles: false, particles: false, gridColor: '#120d00',
+      mechanic: 'movingWalls',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#0a0800';
+        ctx.fillRect(0, 0, W, H);
+        // Moonlight shaft
+        const moonGrad = ctx.createRadialGradient(W * 0.5, 0, 0, W * 0.5, 0, H * 0.65);
+        moonGrad.addColorStop(0, 'rgba(251,191,36,0.07)');
+        moonGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = moonGrad;
+        ctx.fillRect(0, 0, W, H);
+        // Stone columns
+        [0.05, 0.18, 0.33, 0.48, 0.63, 0.78, 0.92].forEach((cx, i) => {
+          const ch = (0.4 + Math.sin(i * 1.9) * 0.15) * H;
+          const broken = i % 3 === 1;
+          ctx.fillStyle = 'rgba(80,60,30,0.7)';
+          ctx.fillRect(cx * W - 8, H - ch, 16, broken ? ch * 0.6 : ch);
+          if (!broken) ctx.fillRect(cx * W - 12, H - ch, 24, 8);
+          ctx.fillRect(cx * W - 10, H - 12, 20, 12);
+          // Moss
+          ctx.fillStyle = `rgba(50,80,30,${0.2 + Math.sin(i * 1.7) * 0.1})`;
+          ctx.fillRect(cx * W - 6, H - ch * (broken ? 0.5 : 0.7), 12, ch * 0.3);
+        });
+        // Ruined arch
+        ctx.strokeStyle = 'rgba(100,75,35,0.5)';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(W * 0.5, H * 0.55, W * 0.18, Math.PI, 0);
+        ctx.stroke();
+        // Torch flickering glow
+        [0.15, 0.5, 0.85].forEach((tx, i) => {
+          const flicker = 0.28 + Math.sin(t * 0.008 + i * 2.1) * 0.14;
+          const grad = ctx.createRadialGradient(tx * W, H * 0.45, 0, tx * W, H * 0.45, 65 + flicker * 20);
+          grad.addColorStop(0, `rgba(251,146,60,${flicker})`);
+          grad.addColorStop(0.4, `rgba(251,191,36,${flicker * 0.3})`);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, H);
+        });
+        // Stars through broken roof
+        for (let i = 0; i < 25; i++) {
+          const sx = (Math.sin(i * 73.1) * 0.5 + 0.5) * W;
+          const sy = (Math.cos(i * 53.7) * 0.5 + 0.5) * H * 0.5;
+          const alpha = 0.2 + Math.sin(t * 0.002 + i) * 0.15;
+          ctx.fillStyle = `rgba(255,255,220,${alpha})`;
+          ctx.fillRect(sx, sy, 1, 1);
+        }
+        // Ground rubble cracks
+        ctx.strokeStyle = 'rgba(120,90,40,0.18)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+          const rx = (0.1 + i * 0.18) * W;
+          const ry = H * 0.85 + Math.sin(i * 1.3) * H * 0.05;
+          ctx.beginPath();
+          ctx.moveTo(rx, ry);
+          ctx.lineTo(rx + 20, ry + 8);
+          ctx.lineTo(rx + 35, ry - 5);
+          ctx.stroke();
+        }
+      }
+    },
+    {
+      score: 23, name: 'Quantum Realm ⚛️', level: 24,
+      bg: '#000510', grid: '#000a20', wall: '#1e3a5f', wallHighlight: 'rgba(103,232,249,0.25)',
+      snakeBody: '#67e8f9', snakeHead: '#ecfeff', eye: '#000510', tongue: '#c084fc',
+      stars: true, bubbles: false, particles: false, gridColor: '#000820',
+      mechanic: 'manyPortals',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#000510';
+        ctx.fillRect(0, 0, W, H);
+        // Quantum interference pattern
+        for (let y = 0; y < H; y += 8) {
+          for (let x = 0; x < W; x += 8) {
+            const wave1 = Math.sin(x * 0.03 + t * 0.002) * Math.cos(y * 0.03);
+            const wave2 = Math.cos(x * 0.02 - t * 0.001) * Math.sin(y * 0.025 + t * 0.001);
+            const interference = (wave1 + wave2) * 0.5;
+            if (interference > 0.5) {
+              ctx.fillStyle = `rgba(103,232,249,${(interference - 0.5) * 0.08})`;
+              ctx.fillRect(x, y, 4, 4);
+            }
+          }
+        }
+        // Electron orbital rings
+        [
+          { cx: W * 0.25, cy: H * 0.3,  rx: 50, ry: 20, angle: 0.3  },
+          { cx: W * 0.75, cy: H * 0.65, rx: 60, ry: 25, angle: -0.5 },
+          { cx: W * 0.5,  cy: H * 0.5,  rx: 80, ry: 30, angle: 0.1  },
+        ].forEach((o, i) => {
+          const rot = t * 0.001 + i * 1.05;
+          ctx.save();
+          ctx.translate(o.cx, o.cy);
+          ctx.rotate(o.angle);
+          ctx.strokeStyle = `rgba(103,232,249,${0.12 + Math.sin(t * 0.002 + i) * 0.05})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, o.rx, o.ry, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          // Orbiting particle
+          ctx.fillStyle = 'rgba(192,132,252,0.8)';
+          ctx.beginPath();
+          ctx.arc(Math.cos(rot) * o.rx, Math.sin(rot) * o.ry, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+        // Quantum tunneling streaks
+        for (let i = 0; i < 8; i++) {
+          const prog = ((t * 0.0015 + i * 0.125) % 1);
+          const sx = prog * W;
+          const sy = (Math.sin(i * 2.3 + t * 0.001) * 0.5 + 0.5) * H;
+          const hue = (180 + i * 22 + t * 0.05) % 360;
+          ctx.strokeStyle = `hsla(${hue},100%,70%,${0.4 - prog * 0.35})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx - 25, sy + Math.sin(i) * 8);
+          ctx.stroke();
+        }
+        // Central nucleus glow
+        const nGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 45);
+        nGrad.addColorStop(0, `rgba(103,232,249,${0.15 + Math.sin(t * 0.003) * 0.07})`);
+        nGrad.addColorStop(0.5, `rgba(167,139,250,${0.06})`);
+        nGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = nGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
+    },
+    {
+      score: 24, name: 'Black Hole 🕳️', level: 25,
+      bg: '#000000', grid: '#020202', wall: '#1c1917', wallHighlight: 'rgba(249,115,22,0.2)',
+      snakeBody: '#f97316', snakeHead: '#ffedd5', eye: '#000000', tongue: '#fbbf24',
+      stars: true, bubbles: false, particles: false, gridColor: '#030303',
+      mechanic: 'nightmare',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+        // Stars spiralling inward
+        for (let i = 0; i < 60; i++) {
+          const angle = (i / 60) * Math.PI * 2 + t * 0.0003 * (1 + i * 0.02);
+          const dist = (Math.sin(i * 137.5) * 0.5 + 0.5) * W * 0.46;
+          const pull = 1 - dist / (W * 0.5);
+          const sx = W / 2 + Math.cos(angle) * dist;
+          const sy = H / 2 + Math.sin(angle) * dist * 0.6;
+          ctx.fillStyle = `rgba(255,255,255,${0.2 + pull * 0.5})`;
+          ctx.fillRect(sx, sy, pull > 0.5 ? 2 : 1, pull > 0.5 ? 2 : 1);
+        }
+        // Accretion disk rings
+        for (let ring = 0; ring < 5; ring++) {
+          const r = 62 + ring * 20;
+          ctx.strokeStyle = `hsla(${30 - ring * 5},100%,${70 - ring * 8}%,${0.12 - ring * 0.02})`;
+          ctx.lineWidth = 8 - ring;
+          ctx.beginPath();
+          ctx.ellipse(W / 2, H / 2, r, r * 0.3, t * 0.0005, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        // Event horizon — pure black
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, 46, 0, Math.PI * 2);
+        ctx.fill();
+        // Gravitational lensing glow
+        const lensGrad = ctx.createRadialGradient(W / 2, H / 2, 45, W / 2, H / 2, 85);
+        lensGrad.addColorStop(0, `rgba(249,115,22,${0.2 + Math.sin(t * 0.003) * 0.08})`);
+        lensGrad.addColorStop(0.4, 'rgba(251,191,36,0.06)');
+        lensGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = lensGrad;
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2, 85, 0, Math.PI * 2);
+        ctx.fill();
+        // Heavy vignette
+        const vign = ctx.createRadialGradient(W / 2, H / 2, H * 0.15, W / 2, H / 2, H * 0.75);
+        vign.addColorStop(0, 'rgba(0,0,0,0)');
+        vign.addColorStop(1, 'rgba(0,0,0,0.87)');
+        ctx.fillStyle = vign;
+        ctx.fillRect(0, 0, W, H);
+      }
+    },
+    {
+      score: 25, name: 'Genesis 💥', level: 26,
+      bg: '#000000', grid: '#050505', wall: '#3f3f46', wallHighlight: 'rgba(255,255,255,0.3)',
+      snakeBody: 'rainbow', snakeHead: '#ffffff', eye: '#000000', tongue: '#f87171',
+      stars: true, bubbles: true, particles: true, gridColor: '#060606',
+      mechanic: 'nightmare',
+      drawBg: (ctx, W, H, t) => {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, W, H);
+        // Big bang shockwave rings expanding from center
+        for (let ring = 0; ring < 6; ring++) {
+          const progress = ((t * 0.0006 + ring * 0.165) % 1);
+          const r = progress * W * 0.75;
+          const hue = (ring * 60 + t * 0.05) % 360;
+          ctx.strokeStyle = `hsla(${hue},100%,70%,${(1 - progress) * 0.15})`;
+          ctx.lineWidth = 3 * (1 - progress);
+          ctx.beginPath();
+          ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        // Cosmic web filaments
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          const len = (0.3 + Math.sin(t * 0.001 + i * 0.5) * 0.1) * W * 0.5;
+          const hue = (i * 30 + t * 0.03) % 360;
+          ctx.strokeStyle = `hsla(${hue},100%,65%,0.07)`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(W / 2, H / 2);
+          ctx.quadraticCurveTo(
+            W / 2 + Math.cos(angle + 0.4) * len * 0.6,
+            H / 2 + Math.sin(angle + 0.4) * len * 0.6,
+            W / 2 + Math.cos(angle) * len,
+            H / 2 + Math.sin(angle) * len
+          );
+          ctx.stroke();
+        }
+        // Newborn stars
+        for (let i = 0; i < 50; i++) {
+          const sx = (Math.sin(i * 137.5) * 0.5 + 0.5) * W;
+          const sy = (Math.cos(i * 97.3) * 0.5 + 0.5) * H;
+          const hue = (i * 23 + t * 0.08) % 360;
+          const alpha = 0.3 + Math.sin(t * 0.003 + i * 0.7) * 0.25;
+          ctx.fillStyle = `hsla(${hue},100%,80%,${alpha})`;
+          ctx.fillRect(sx, sy, i % 7 === 0 ? 3 : i % 3 === 0 ? 2 : 1, i % 7 === 0 ? 3 : 1);
+        }
+        // Blinding white creation core
+        const coreGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 85);
+        coreGrad.addColorStop(0, `rgba(255,255,255,${0.18 + Math.sin(t * 0.004) * 0.08})`);
+        coreGrad.addColorStop(0.3, 'rgba(255,200,100,0.07)');
+        coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = coreGrad;
+        ctx.fillRect(0, 0, W, H);
+        // Rainbow nebula wisps
+        for (let i = 0; i < 5; i++) {
+          const wx = (0.1 + i * 0.2) * W;
+          const wy = (0.2 + Math.sin(i * 1.57 + t * 0.001) * 0.3) * H;
+          const hue = (i * 72 + t * 0.04) % 360;
+          const grad = ctx.createRadialGradient(wx, wy, 0, wx, wy, 72);
+          grad.addColorStop(0, `hsla(${hue},100%,60%,0.08)`);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, H);
+        }
+      }
+    },
   ];
 
   // ─── ANACONDA BOSS ─────────────────────────────────────────────────────────
@@ -904,8 +1553,9 @@ const SnakeGame = ({ onBack }) => {
   const rndInt = (n) => Math.floor(Math.random() * n);
 
   const initializeGame = (freshBest) => {
-    const rest = shuffleArray(MAP_THEMES_POOL.slice(1));
-    const MAP_THEMES = [MAP_THEMES_POOL[0], ...rest];
+    const rest = shuffleArray(MAP_THEMES_POOL.slice(1, -2));
+    const endgame = MAP_THEMES_POOL.slice(-2); // [Black Hole, Genesis]
+    const MAP_THEMES = [MAP_THEMES_POOL[0], ...rest, ...endgame];
     MAP_THEMES.forEach((t, i) => { t._threshold = i * 10; });
 
     return {
@@ -2003,9 +2653,9 @@ const SnakeGame = ({ onBack }) => {
 
     if (gameRef.current.waterLevel > 0) {
       const wy = H - gameRef.current.waterLevel * CELL;
-      ctx.fillStyle = 'rgba(56,189,248,0.25)';
+      ctx.fillStyle = th.waterColor || 'rgba(56,189,248,0.25)';
       ctx.fillRect(0, wy, W, H - wy);
-      ctx.strokeStyle = 'rgba(56,189,248,0.7)';
+      ctx.strokeStyle = th.waterLineColor || 'rgba(56,189,248,0.7)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, wy);
