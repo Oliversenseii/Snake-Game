@@ -210,7 +210,7 @@ const SnakeGame = ({ onBack }) => {
         audioCtxRef.current.close().catch(() => {});
       }
     };
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); 
 
   const saveScoreToDB = async (newScore) => {
     const currentBest = gameRef.current ? gameRef.current.best : bestRef.current;
@@ -271,7 +271,6 @@ const SnakeGame = ({ onBack }) => {
 
   const EVENTS = ['foodrain', 'portals'];
 
-  // ─── MAP THEMES with background draw functions ─────────────────────────────
   const MAP_THEMES_POOL = [
     {
       score: 0, name: 'Classic 🐍', level: 1,
@@ -1519,8 +1518,6 @@ const SnakeGame = ({ onBack }) => {
     },
   ];
 
-  // ─── ANACONDA BOSS ─────────────────────────────────────────────────────────
-  // She rules the 3 enemy snakes — bigger, faster, hunts you aggressively
   const ANACONDA_CONFIG = {
     name: 'anaconda',
     headColor: '#fde68a',
@@ -2014,7 +2011,6 @@ const SnakeGame = ({ onBack }) => {
     }
   };
 
-  // ─── ANACONDA SPAWN & TICK ──────────────────────────────────────────────────
   const spawnAnaconda = () => {
     if (gameRef.current.anaconda) return;
     const COLS = gameRef.current.COLS;
@@ -2043,15 +2039,14 @@ const SnakeGame = ({ onBack }) => {
       body,
       dir: { ...d },
       active: true,
-      health: 3,           // takes 3 hits to die
+      health: 3,           
       enraged: false,
       enrageTimer: null,
       queenOfEnemies: true,
     };
 
-    // Make all existing enemies flee / protect anaconda (behavior shift)
     gameRef.current.enemies.forEach(e => {
-      e.personality = 'escort'; // escorts queen
+      e.personality = 'escort'; 
     });
 
     showEventBanner('👑', '🐍 QUEEN ANACONDA!', 'She commands the horde! 3 hits to defeat!');
@@ -2070,7 +2065,7 @@ const SnakeGame = ({ onBack }) => {
     const COLS = gameRef.current.COLS;
     const ROWS = gameRef.current.ROWS;
     const head = ana.body[0];
-    const target = gameRef.current.snake[0]; // Always hunts player
+    const target = gameRef.current.snake[0]; 
 
     const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
     let best = null;
@@ -2083,17 +2078,16 @@ const SnakeGame = ({ onBack }) => {
       if (gameRef.current.walls.has(wk(nx, ny))) continue;
       if (ana.body.slice(1).some(s => s.x === nx && s.y === ny)) continue;
 
-      // Ana is smart — avoids enemies too unless enraged
       if (!ana.enraged && gameRef.current.enemies.some(e => e.body[0].x === nx && e.body[0].y === ny)) continue;
 
       const dist = Math.abs(nx - target.x) + Math.abs(ny - target.y);
       let sc = -dist;
-      if (ana.enraged) sc += Math.random() * 3; // random factor when enraged
+      if (ana.enraged) sc += Math.random() * 3; 
       if (sc > bestScore) { bestScore = sc; best = d; }
     }
 
     if (!best) {
-      // Fallback: pick any valid direction
+      
       for (const d of dirs) {
         const nx = (head.x + d.x + COLS) % COLS;
         const ny = (head.y + d.y + ROWS) % ROWS;
@@ -2111,7 +2105,6 @@ const SnakeGame = ({ onBack }) => {
       y: (head.y + ana.dir.y + ROWS) % ROWS,
     };
 
-    // Did she reach the player's head?
     if (nh.x === target.x && nh.y === target.y) {
       if (gameRef.current.powerups.shield) {
         delete gameRef.current.powerups.shield;
@@ -2122,16 +2115,15 @@ const SnakeGame = ({ onBack }) => {
       return;
     }
 
-    // Did she hit player's body?
     if (gameRef.current.snake.slice(1).some(s => s.x === nh.x && s.y === nh.y)) return;
 
     ana.body.unshift(nh);
-    // Anaconda grows when eating food
+    
     const fi = gameRef.current.foods.findIndex(f => f.x === nh.x && f.y === nh.y);
     if (fi >= 0) {
       gameRef.current.foods.splice(fi, 1);
       ensureApple();
-      // Grows 2 extra segments when eating
+      
       ana.body.push({ ...ana.body[ana.body.length - 1] });
       ana.body.push({ ...ana.body[ana.body.length - 1] });
     } else {
@@ -2159,7 +2151,6 @@ const SnakeGame = ({ onBack }) => {
         e.personality = 'aggressive';
       });
 
-      // Reward: grow player snake
       for (let i = 0; i < 5; i++) {
         gameRef.current.snake.push({ ...gameRef.current.snake[gameRef.current.snake.length - 1] });
       }
@@ -2173,7 +2164,7 @@ const SnakeGame = ({ onBack }) => {
         }
       }, 15000);
     } else {
-      // Phase shift — enrage
+      
       ana.enraged = true;
       floatText(`👑 ${ana.health} HP LEFT!`, ana.body[0], '#f87171');
       showEventBanner('😡', 'ANACONDA ENRAGED!', `${ana.health} hits remaining!`);
@@ -2198,7 +2189,7 @@ const SnakeGame = ({ onBack }) => {
       if (enemy.personality === 'aggressive') {
         target = gameRef.current.snake[0];
       } else if (enemy.personality === 'escort') {
-        // Escort anaconda — orbit her head
+        
         target = gameRef.current.anaconda?.body[0] || gameRef.current.snake[0];
       } else {
         gameRef.current.foods.forEach(f => {
@@ -2355,7 +2346,6 @@ const SnakeGame = ({ onBack }) => {
     setTimeout(() => el.remove(), 1000);
   };
 
-  // ─── BACKGROUND ANIMATION LOOP ─────────────────────────────────────────────
   const animateBackground = () => {
     if (!gameRef.current?.running) return;
     const bg = bgCanvasRef.current;
@@ -2455,7 +2445,6 @@ const SnakeGame = ({ onBack }) => {
       }
     }
 
-    // ── Check anaconda collision ────────────────────────────────────────────
     const ana = gameRef.current.anaconda;
     if (ana && ana.active) {
       // Hit anaconda's head = damage it
@@ -2624,7 +2613,6 @@ const SnakeGame = ({ onBack }) => {
     const th = getTheme();
     gameRef.current.rainbowHue = (gameRef.current.rainbowHue + 2) % 360;
 
-    // Clear game canvas (background is on bgCanvas)
     ctx.clearRect(0, 0, W, H);
 
     if (gameRef.current.glitchActive) {
@@ -2632,7 +2620,6 @@ const SnakeGame = ({ onBack }) => {
       ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 4);
     }
 
-    // Semi-transparent grid overlay on top of background
     ctx.strokeStyle = (th.gridColor || th.grid) + '80';
     ctx.lineWidth = 0.5;
     for (let x = 0; x <= COLS; x++) {
@@ -2642,7 +2629,6 @@ const SnakeGame = ({ onBack }) => {
       ctx.beginPath(); ctx.moveTo(0, y * CELL); ctx.lineTo(W, y * CELL); ctx.stroke();
     }
 
-    // Sandstorm overlay
     if (th.mechanic === 'sandstorm' && gameRef.current.sandstormAlpha > 0.05) {
       if (Math.abs(gameRef.current.sandstormAlpha - gameRef.current.sandstormTarget) > 0.01) {
         gameRef.current.sandstormAlpha += (gameRef.current.sandstormTarget - gameRef.current.sandstormAlpha) * 0.02;
@@ -2749,7 +2735,6 @@ const SnakeGame = ({ onBack }) => {
       });
     });
 
-    // ── ANACONDA RENDER ─────────────────────────────────────────────────────
     const ana = gameRef.current.anaconda;
     if (ana && ana.active) {
       const pulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7;
@@ -2910,11 +2895,9 @@ const SnakeGame = ({ onBack }) => {
 
     updateHUD();
 
-    // Draw initial background
     const th = MAP_THEMES_POOL[0];
     if (th.drawBg) th.drawBg(bgCanvas.getContext('2d'), width, height, 0);
 
-    // Start background animation loop
     animateBackground();
 
     renderCanvas();
@@ -2963,7 +2946,7 @@ const SnakeGame = ({ onBack }) => {
 
     gameRef.current.nextDir = { x: dx, y: dy };
     e.preventDefault();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleResize = useCallback(() => {
     if (gameRef.current?.running) {
@@ -2980,7 +2963,7 @@ const SnakeGame = ({ onBack }) => {
         renderCanvas();
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -2998,7 +2981,7 @@ const SnakeGame = ({ onBack }) => {
         audioCtxRef.current.close().catch(() => {});
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -3102,21 +3085,18 @@ const SnakeGame = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Canvas stack: background + game layer */}
       <div style={{ width: '100%', height: '100%', paddingTop: '70px', position: 'relative' }}>
-        {/* Background canvas */}
+        
         <canvas
           ref={bgCanvasRef}
           style={{ position: 'absolute', top: '70px', left: 0, width: '100%', height: 'calc(100% - 70px)', display: 'block' }}
         />
-        {/* Game canvas (transparent bg, renders on top) */}
         <canvas
           ref={canvasRef}
           style={{ position: 'absolute', top: '70px', left: 0, width: '100%', height: 'calc(100% - 70px)', display: 'block', cursor: 'pointer' }}
         />
       </div>
 
-      {/* Event Banner */}
       <div
         id="event-banner"
         style={{
@@ -3127,7 +3107,6 @@ const SnakeGame = ({ onBack }) => {
         }}
       />
 
-      {/* Level Transition Banner */}
       <div
         id="level-banner"
         style={{
@@ -3147,7 +3126,6 @@ const SnakeGame = ({ onBack }) => {
         }}
       />
 
-      {/* Game Over Overlay */}
       <div
         id="gameOverlay"
         style={{
@@ -3169,7 +3147,6 @@ const SnakeGame = ({ onBack }) => {
         >PLAY AGAIN</button>
       </div>
 
-      {/* Pause Overlay */}
       <div
         id="pauseOverlay"
         style={{

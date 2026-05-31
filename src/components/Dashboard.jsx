@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Leaderboard from './Leaderboard';
 
-// ─── Data extracted from SnakeGame ────────────────────────────────────────────
 
 const FOODS = [
   { emoji: '🍎', name: 'Apple',     type: 'apple',   score: '+1',  effect: 'Grow +1 segment',                        color: '#f87171', rarity: 'Common'   },
@@ -65,7 +64,6 @@ const MECHANICS_MISC = [
   { name: 'Float Text',    emoji: '✨', desc: 'Point gains and power-up labels float above the snake head momentarily.'         },
 ];
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
 
 const SectionHeader = ({ emoji, title, subtitle }) => (
   <div style={{ marginBottom: '16px' }}>
@@ -129,7 +127,6 @@ const Card = ({ children, accent = '#4ade80' }) => (
   </div>
 );
 
-// ─── Queen Anaconda Boss Card ──────────────────────────────────────────────────
 
 const AnacondaBossCard = () => (
   <Card accent="#fbbf24">
@@ -166,7 +163,6 @@ const AnacondaBossCard = () => (
       ))}
     </div>
 
-    {/* Phase table */}
     <Table
       headers={['HP', 'Phase', 'Behaviour']}
       rows={[
@@ -208,7 +204,6 @@ const AnacondaBossCard = () => (
   </Card>
 );
 
-// ─── Mechanics Panel ──────────────────────────────────────────────────────────
 
 const MechanicsPanel = () => {
   const [tab, setTab] = useState('foods');
@@ -259,7 +254,6 @@ const MechanicsPanel = () => {
         ))}
       </div>
 
-      {/* Foods & Power-ups */}
       {tab === 'foods' && (
         <Card accent="#4ade80">
           <SectionHeader emoji="🍽️" title="Foods & Power-ups" subtitle="Spawns every 5 s; up to 2 bonus items on screen at once" />
@@ -286,7 +280,6 @@ const MechanicsPanel = () => {
         </Card>
       )}
 
-      {/* Themes */}
       {tab === 'themes' && (
         <Card accent="#22d3ee">
           <SectionHeader emoji="🎨" title="Themes & Zones" subtitle="Theme changes every 10 points — order is randomised each game (Classic always first)" />
@@ -304,7 +297,6 @@ const MechanicsPanel = () => {
         </Card>
       )}
 
-      {/* Enemies */}
       {tab === 'enemies' && (
         <Card accent="#f87171">
           <SectionHeader emoji="👾" title="Enemy Snakes" subtitle="Enemy snakes grow, eat food, and chase you — eat their HEAD to eliminate them" />
@@ -340,10 +332,8 @@ const MechanicsPanel = () => {
         </Card>
       )}
 
-      {/* Queen Anaconda Boss */}
       {tab === 'boss' && <AnacondaBossCard />}
 
-      {/* Events & Misc */}
       {tab === 'events' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Card accent="#a78bfa">
@@ -372,7 +362,6 @@ const MechanicsPanel = () => {
             />
           </Card>
 
-          {/* Controls quick reference */}
           <Card accent="#60a5fa">
             <SectionHeader emoji="🎮" title="Controls" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px' }}>
@@ -400,7 +389,6 @@ const MechanicsPanel = () => {
   );
 };
 
-// ─── Dashboard ─────────────────────────────────────────────────────────────────
 
 const Dashboard = ({ onPlay }) => {
   const { user, highScore, logout } = useAuth();
@@ -434,7 +422,6 @@ const Dashboard = ({ onPlay }) => {
           </div>
         </div>
 
-        {/* Play + Leaderboard row */}
         <div className="grid md:grid-cols-2 gap-8">
           <div className="bg-gradient-to-br from-green-600/20 to-green-800/20 rounded-2xl p-8 border border-green-500/30 flex flex-col items-center justify-center text-center">
             <div className="text-8xl mb-4 animate-bounce">🐍</div>
@@ -455,7 +442,6 @@ const Dashboard = ({ onPlay }) => {
           <Leaderboard />
         </div>
 
-        {/* Mechanics section */}
         <MechanicsPanel />
 
       </div>

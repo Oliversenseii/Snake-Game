@@ -11,7 +11,6 @@ const Leaderboard = () => {
 
   const fetchLeaderboard = async () => {
     try {
-      // Simply get scores with username directly from scores table
       const { data, error } = await supabase
         .from('scores')
         .select('high_score, username')
